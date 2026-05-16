@@ -1,0 +1,51 @@
+{
+  "expo": {
+    "name": "RescueLog",
+    "slug": "rescuelog",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#2D7D46"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSCameraUsageDescription": "RescueLog uses the camera to photograph rescued food laid out at pop-up sites.",
+        "NSLocationWhenInUseUsageDescription": "RescueLog records the pop-up location so each log is tied to the right site.",
+        "NSPhotoLibraryUsageDescription": "RescueLog can attach existing photos of rescued food to a pop-up log."
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#2D7D46"
+      },
+      "edgeToEdgeEnabled": true,
+      "permissions": ["CAMERA", "ACCESS_FINE_LOCATION", "ACCESS_COARSE_LOCATION"]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-secure-store",
+      [
+        "expo-image-picker",
+        {
+          "cameraPermission": "RescueLog uses the camera to photograph rescued food laid out at pop-up sites.",
+          "photosPermission": "RescueLog can attach existing photos of rescued food to a pop-up log."
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "RescueLog records the pop-up location so each log is tied to the right site."
+        }
+      ]
+    ]
+  }
+}

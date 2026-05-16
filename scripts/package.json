@@ -1,0 +1,15 @@
+{
+  "name": "rescuelog-scripts",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Seed scripts for RescueLog (drivers, admins, demo data)",
+  "scripts": {
+    "seed-drivers": "node seed-drivers.js",
+    "seed-data": "node seed-test-data.js"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.39.0",
+    "bcryptjs": "^2.4.3",
+    "dotenv": "^16.4.5"
+  }
+}

@@ -1,0 +1,21 @@
+// RescueLog mark — a leaf on the Second Servings green.
+export default function Logo({ size = 40, className = '' }) {
+  return (
+    <span
+      className={`inline-flex items-center justify-center rounded-xl bg-rescue-green ${className}`}
+      style={{ width: size, height: size }}
+    >
+      <svg
+        width={size * 0.62}
+        height={size * 0.62}
+        viewBox="0 0 24 24"
+        aria-hidden="true"
+      >
+        <path
+          fill="#fff"
+          d="M6.05 8.05c-2.73 2.73-2.73 7.15-.02 9.88 1.47-3.4 4.09-6.24 7.36-7.93-2.77 2.34-4.71 5.61-5.39 9.32 2.6 1.23 5.8.78 7.95-1.37C19.43 14.47 20 4 20 4S9.53 4.57 6.05 8.05z"
+        />
+      </svg>
+    </span>
+  );
+}
