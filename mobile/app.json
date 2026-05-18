@@ -18,7 +18,8 @@
       "infoPlist": {
         "NSCameraUsageDescription": "RescueLog uses the camera to photograph rescued food laid out at pop-up sites.",
         "NSLocationWhenInUseUsageDescription": "RescueLog records the pop-up location so each log is tied to the right site.",
-        "NSPhotoLibraryUsageDescription": "RescueLog can attach existing photos of rescued food to a pop-up log."
+        "NSPhotoLibraryUsageDescription": "RescueLog can attach existing photos of rescued food to a pop-up log.",
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
