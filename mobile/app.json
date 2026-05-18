@@ -13,7 +13,7 @@
       "backgroundColor": "#2D7D46"
     },
     "ios": {
-      "supportsTablet": true,
+      "supportsTablet": false,
       "bundleIdentifier": "com.rescuelog.app",
       "infoPlist": {
         "NSCameraUsageDescription": "RescueLog uses the camera to photograph rescued food laid out at pop-up sites.",
