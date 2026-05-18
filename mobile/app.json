@@ -14,6 +14,7 @@
     },
     "ios": {
       "supportsTablet": true,
+      "bundleIdentifier": "com.rescuelog.app",
       "infoPlist": {
         "NSCameraUsageDescription": "RescueLog uses the camera to photograph rescued food laid out at pop-up sites.",
         "NSLocationWhenInUseUsageDescription": "RescueLog records the pop-up location so each log is tied to the right site.",
@@ -21,12 +22,18 @@
       }
     },
     "android": {
+      "package": "com.rescuelog.app",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#2D7D46"
       },
       "edgeToEdgeEnabled": true,
-      "permissions": ["CAMERA", "ACCESS_FINE_LOCATION", "ACCESS_COARSE_LOCATION"]
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -46,6 +53,11 @@
           "locationWhenInUsePermission": "RescueLog records the pop-up location so each log is tied to the right site."
         }
       ]
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "4be8061c-6949-4894-8df8-b9ecdb9bacc5"
+      }
+    }
   }
 }
