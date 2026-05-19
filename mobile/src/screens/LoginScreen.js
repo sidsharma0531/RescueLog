@@ -4,6 +4,8 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
+  Pressable,
+  Modal,
   ScrollView,
   ActivityIndicator,
   StyleSheet,
@@ -18,6 +20,7 @@ export default function LoginScreen({ navigation }) {
   const [drivers, setDrivers] = useState([]);
   const [loadError, setLoadError] = useState('');
   const [selectedId, setSelectedId] = useState(null);
+  const [pickerOpen, setPickerOpen] = useState(false);
   const [pin, setPin] = useState('');
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -40,6 +43,7 @@ export default function LoginScreen({ navigation }) {
   }, [checking]);
 
   async function handleLogin() {
+    if (submitting) return;
     if (!selectedId) {
       setError('Select your name first.');
       return;
@@ -61,6 +65,15 @@ export default function LoginScreen({ navigation }) {
     }
   }
 
+  // Auto-submit as soon as a driver is picked and the 4-digit PIN is
+  // complete — drivers never have to find the Log In button behind the
+  // keyboard. (handleLogin is intentionally not a dependency.)
+  useEffect(() => {
+    if (pin.length === 4 && selectedId && !submitting) {
+      handleLogin();
+    }
+  }, [pin, selectedId]); // eslint-disable-line react-hooks/exhaustive-deps
+
   if (checking) {
     return (
       <View style={styles.center}>
@@ -68,6 +81,14 @@ export default function LoginScreen({ navigation }) {
       </View>
     );
   }
+
+  const selectedDriver = drivers.find((d) => d.id === selectedId);
+  const selectLabel =
+    drivers.length === 0
+      ? 'Loading drivers…'
+      : selectedDriver
+        ? selectedDriver.name
+        : "Who's logging in?";
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -83,33 +104,26 @@ export default function LoginScreen({ navigation }) {
           <Text style={styles.tagline}>AI-powered food rescue tracking</Text>
         </View>
 
-        <Text style={styles.label}>Who's logging in?</Text>
+        <Text style={styles.label}>Driver</Text>
         {loadError ? (
           <Text style={styles.loadError}>{loadError}</Text>
-        ) : drivers.length === 0 ? (
-          <ActivityIndicator color={colors.green} style={styles.driversLoading} />
         ) : (
-          <View style={styles.driverList}>
-            {drivers.map((d) => {
-              const active = d.id === selectedId;
-              return (
-                <TouchableOpacity
-                  key={d.id}
-                  style={[styles.driverRow, active && styles.driverRowActive]}
-                  onPress={() => {
-                    setSelectedId(d.id);
-                    setError('');
-                  }}
-                >
-                  <Text
-                    style={[styles.driverName, active && styles.driverNameActive]}
-                  >
-                    {d.name}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
+          <TouchableOpacity
+            style={styles.select}
+            onPress={() => drivers.length > 0 && setPickerOpen(true)}
+            disabled={drivers.length === 0}
+            activeOpacity={0.7}
+          >
+            <Text
+              style={[
+                styles.selectText,
+                !selectedDriver && styles.selectPlaceholder,
+              ]}
+            >
+              {selectLabel}
+            </Text>
+            <Text style={styles.chevron}>▾</Text>
+          </TouchableOpacity>
         )}
 
         <Text style={styles.label}>4-digit PIN</Text>
@@ -141,6 +155,48 @@ export default function LoginScreen({ navigation }) {
 
         <Text style={styles.footer}>Built for Second Servings Houston</Text>
       </ScrollView>
+
+      {/* Driver picker — names only show when the dropdown is tapped. */}
+      <Modal
+        visible={pickerOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setPickerOpen(false)}
+      >
+        <View style={styles.modalRoot}>
+          <Pressable
+            style={styles.backdrop}
+            onPress={() => setPickerOpen(false)}
+          />
+          <View style={styles.sheet}>
+            <Text style={styles.sheetTitle}>Who's logging in?</Text>
+            {drivers.map((d) => {
+              const active = d.id === selectedId;
+              return (
+                <TouchableOpacity
+                  key={d.id}
+                  style={styles.sheetRow}
+                  onPress={() => {
+                    setSelectedId(d.id);
+                    setError('');
+                    setPickerOpen(false);
+                  }}
+                >
+                  <Text
+                    style={[
+                      styles.sheetRowText,
+                      active && styles.sheetRowTextActive,
+                    ]}
+                  >
+                    {d.name}
+                  </Text>
+                  {active && <Text style={styles.sheetCheck}>✓</Text>}
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -170,12 +226,7 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: 16,
     backgroundColor: colors.white,
   },
-  title: {
-    fontSize: 28,
-    fontWeight: '800',
-    color: colors.ink,
-    marginTop: 12,
-  },
+  title: { fontSize: 28, fontWeight: '800', color: colors.ink, marginTop: 12 },
   tagline: { fontSize: 14, color: colors.gray, marginTop: 2 },
   label: {
     fontSize: 14,
@@ -184,10 +235,11 @@ const styles = StyleSheet.create({
     marginTop: 20,
     marginBottom: 8,
   },
-  driversLoading: { marginVertical: 16, alignSelf: 'flex-start' },
   loadError: { color: colors.danger, fontSize: 14 },
-  driverList: { gap: 8 },
-  driverRow: {
+  select: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     borderWidth: 1.5,
     borderColor: colors.border,
     borderRadius: radius.md,
@@ -195,12 +247,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     backgroundColor: colors.white,
   },
-  driverRowActive: {
-    borderColor: colors.green,
-    backgroundColor: colors.greenLight,
-  },
-  driverName: { fontSize: 18, color: colors.ink, fontWeight: '600' },
-  driverNameActive: { color: colors.greenDark },
+  selectText: { fontSize: 18, color: colors.ink, fontWeight: '600' },
+  selectPlaceholder: { color: colors.grayLight, fontWeight: '500' },
+  chevron: { fontSize: 16, color: colors.gray },
   pinInput: {
     borderWidth: 1.5,
     borderColor: colors.border,
@@ -228,4 +277,37 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: 28,
   },
+  modalRoot: { flex: 1, justifyContent: 'flex-end' },
+  backdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+  },
+  sheet: {
+    backgroundColor: colors.white,
+    borderTopLeftRadius: radius.lg,
+    borderTopRightRadius: radius.lg,
+    paddingTop: 8,
+    paddingBottom: 32,
+    paddingHorizontal: 8,
+  },
+  sheetTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.gray,
+    textAlign: 'center',
+    paddingVertical: 12,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  sheetRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 16,
+    paddingHorizontal: 14,
+    borderRadius: radius.md,
+  },
+  sheetRowText: { fontSize: 18, color: colors.ink, fontWeight: '600' },
+  sheetRowTextActive: { color: colors.green },
+  sheetCheck: { fontSize: 18, color: colors.green, fontWeight: '800' },
 });

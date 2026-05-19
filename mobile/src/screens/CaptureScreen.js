@@ -247,13 +247,11 @@ export default function CaptureScreen({ navigation }) {
                 setWeightEstimate(t.replace(/[^0-9.]/g, '').slice(0, 7))
               }
               keyboardType="decimal-pad"
-              placeholder="lbs (optional)"
+              placeholder="lbs"
               placeholderTextColor={colors.grayLight}
               style={styles.input}
             />
-            <Text style={styles.hint}>
-              Optional — the number you'd put on your route sheet.
-            </Text>
+            <Text style={styles.hint}>The number you'd normally estimate</Text>
           </View>
 
           <View style={styles.card}>
@@ -261,7 +259,7 @@ export default function CaptureScreen({ navigation }) {
             <TextInput
               value={notes}
               onChangeText={setNotes}
-              placeholder="Anything worth noting? (optional)"
+              placeholder="Additional details (optional)"
               placeholderTextColor={colors.grayLight}
               style={[styles.input, styles.notesInput]}
               multiline

@@ -5,9 +5,7 @@ import { colors, radius } from '../theme';
 export default function PhotoGrid({ photos, onRemove }) {
   if (!photos || photos.length === 0) {
     return (
-      <Text style={styles.empty}>
-        No photos yet — tap “Take Photo” to add the food on the tables.
-      </Text>
+      <Text style={styles.empty}>No photos yet. Tap above to start.</Text>
     );
   }
 
