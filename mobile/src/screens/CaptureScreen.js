@@ -36,6 +36,7 @@ export default function CaptureScreen({ navigation }) {
   const [weightEstimate, setWeightEstimate] = useState('');
   const [notes, setNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [permissionMessage, setPermissionMessage] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -78,9 +79,11 @@ export default function CaptureScreen({ navigation }) {
   async function takePhoto() {
     const perm = await ImagePicker.requestCameraPermissionsAsync();
     if (!perm.granted) {
-      Alert.alert(
-        'Camera access needed',
-        'Enable camera access for RescueLog in Settings to take photos.',
+      // Inline message, not an Alert — Apple flagged the popup as a re-prompt
+      // for permission. Drivers see the message and can open Settings if they
+      // choose; the app does not nag.
+      setPermissionMessage(
+        'Camera access is needed to take photos. You can enable it in your device Settings.',
       );
       return;
     }
@@ -90,14 +93,14 @@ export default function CaptureScreen({ navigation }) {
     if (!asset?.uri) return;
     const uri = await resizeForUpload(asset.uri, asset.width, asset.height);
     setPhotos((prev) => [...prev, { uri }]);
+    setPermissionMessage(null);
   }
 
   async function pickFromGallery() {
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!perm.granted) {
-      Alert.alert(
-        'Photo access needed',
-        'Enable photo library access for RescueLog in Settings to add existing photos.',
+      setPermissionMessage(
+        'Photo library access is needed to upload photos. You can enable it in your device Settings.',
       );
       return;
     }
@@ -112,6 +115,7 @@ export default function CaptureScreen({ navigation }) {
       assets.map((a) => resizeForUpload(a.uri, a.width, a.height)),
     );
     setPhotos((prev) => [...prev, ...uris.map((uri) => ({ uri }))]);
+    setPermissionMessage(null);
   }
 
   function removePhoto(index) {
@@ -236,6 +240,9 @@ export default function CaptureScreen({ navigation }) {
                 </Text>
               </TouchableOpacity>
             </View>
+            {permissionMessage ? (
+              <Text style={styles.permissionMessage}>{permissionMessage}</Text>
+            ) : null}
             <PhotoGrid photos={photos} onRemove={removePhoto} />
           </View>
 
@@ -374,6 +381,12 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: colors.green,
     textAlign: 'center',
+  },
+  permissionMessage: {
+    fontSize: 14,
+    color: colors.danger,
+    lineHeight: 20,
+    marginBottom: 12,
   },
   input: {
     borderWidth: 1,
