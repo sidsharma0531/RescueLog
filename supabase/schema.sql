@@ -100,3 +100,16 @@ drop policy if exists "popup-photos public read" on storage.objects;
 create policy "popup-photos public read"
   on storage.objects for select
   using (bucket_id = 'popup-photos');
+
+-- ---- Org signups -----------------------------------------------
+-- Inbound "Get started" requests submitted from the /onboard web page.
+create table if not exists org_signups (
+  id            uuid primary key default gen_random_uuid(),
+  org_name      text not null,
+  contact_name  text,
+  email         text,
+  phone         text,
+  created_at    timestamptz default now()
+);
+
+alter table org_signups enable row level security;

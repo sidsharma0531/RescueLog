@@ -8,6 +8,7 @@ import {
   Modal,
   ScrollView,
   ActivityIndicator,
+  Linking,
   StyleSheet,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -153,7 +154,20 @@ export default function LoginScreen({ navigation }) {
           </Text>
         </TouchableOpacity>
 
-        <Text style={styles.footer}>Built for Second Servings Houston</Text>
+        <TouchableOpacity
+          style={styles.onboardLink}
+          onPress={() =>
+            Linking.openURL('https://rescuelog-mu.vercel.app/onboard').catch(
+              () => {},
+            )
+          }
+        >
+          <Text style={styles.onboardLinkText}>
+            New organization? Get started
+          </Text>
+        </TouchableOpacity>
+
+        <Text style={styles.footer}>Built for food rescue organizations</Text>
       </ScrollView>
 
       {/* Driver picker — names only show when the dropdown is tapped. */}
@@ -275,7 +289,13 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     color: colors.grayLight,
     fontSize: 12,
-    marginTop: 28,
+    marginTop: 24,
+  },
+  onboardLink: { marginTop: 18, alignItems: 'center' },
+  onboardLinkText: {
+    fontSize: 15,
+    color: colors.green,
+    fontWeight: '600',
   },
   modalRoot: { flex: 1, justifyContent: 'flex-end' },
   backdrop: {
