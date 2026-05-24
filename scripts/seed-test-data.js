@@ -6,6 +6,10 @@
 // editor:  truncate popup_logs cascade;
 const { supabase } = require('./_client');
 
+// Launch-partner org id (seeded by supabase/schema.sql). All demo logs
+// belong to Second Servings Houston.
+const ORG_ID = '00000000-0000-0000-0000-000000000001';
+
 // Plausible Houston-area community sites (coordinates are approximate).
 const LOCATIONS = [
   { name: "St. Mark's Church", address: 'Houston, TX', latitude: 29.728, longitude: -95.422 },
@@ -113,6 +117,7 @@ async function main() {
 
     const { error } = await supabase.from('popup_logs').insert({
       driver_id: driver.id,
+      organization_id: ORG_ID,
       location_id: locationIds[loc.name],
       latitude: loc.latitude,
       longitude: loc.longitude,

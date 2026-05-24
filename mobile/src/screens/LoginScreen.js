@@ -8,16 +8,22 @@ import {
   Modal,
   ScrollView,
   ActivityIndicator,
-  Linking,
   StyleSheet,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as api from '../services/api';
-import { saveDriver, getDriver } from '../services/storage';
+import {
+  saveDriver,
+  getDriver,
+  getOrg,
+  clearOrg,
+} from '../services/storage';
+import Logo from '../components/Logo';
 import { colors, radius } from '../theme';
 
 export default function LoginScreen({ navigation }) {
   const [checking, setChecking] = useState(true);
+  const [org, setOrg] = useState(null);
   const [drivers, setDrivers] = useState([]);
   const [loadError, setLoadError] = useState('');
   const [selectedId, setSelectedId] = useState(null);
@@ -26,22 +32,32 @@ export default function LoginScreen({ navigation }) {
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
-  // Already logged in? Skip straight to Home.
+  // On mount: bail to OrgSelect if no org; skip to Home if already
+  // logged in.
   useEffect(() => {
-    getDriver().then((d) => {
-      if (d) navigation.replace('Home');
-      else setChecking(false);
-    });
+    (async () => {
+      const [d, o] = await Promise.all([getDriver(), getOrg()]);
+      if (!o) {
+        navigation.replace('OrgSelect');
+        return;
+      }
+      setOrg(o);
+      if (d) {
+        navigation.replace('Home');
+        return;
+      }
+      setChecking(false);
+    })();
   }, [navigation]);
 
-  // Load the driver list once the login screen is actually showing.
+  // Once the org is known, load its drivers for the dropdown.
   useEffect(() => {
-    if (checking) return;
+    if (checking || !org) return;
     api
-      .getDrivers()
+      .getDrivers(org.id)
       .then((res) => setDrivers(res.drivers || []))
       .catch((e) => setLoadError(e.message));
-  }, [checking]);
+  }, [checking, org]);
 
   async function handleLogin() {
     if (submitting) return;
@@ -56,7 +72,7 @@ export default function LoginScreen({ navigation }) {
     setError('');
     setSubmitting(true);
     try {
-      const res = await api.login(selectedId, pin);
+      const res = await api.login(selectedId, pin, org.id);
       await saveDriver(res.driver);
       navigation.replace('Home');
     } catch (e) {
@@ -75,7 +91,12 @@ export default function LoginScreen({ navigation }) {
     }
   }, [pin, selectedId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  if (checking) {
+  async function switchOrg() {
+    await clearOrg();
+    navigation.replace('OrgSelect');
+  }
+
+  if (checking || !org) {
     return (
       <View style={styles.center}>
         <ActivityIndicator size="large" color={colors.green} />
@@ -98,11 +119,9 @@ export default function LoginScreen({ navigation }) {
         keyboardShouldPersistTaps="handled"
       >
         <View style={styles.header}>
-          <View style={styles.logoMark}>
-            <View style={styles.logoLeaf} />
-          </View>
+          <Logo size={56} />
           <Text style={styles.title}>RescueLog</Text>
-          <Text style={styles.tagline}>AI-powered food rescue tracking</Text>
+          <Text style={styles.orgName}>{org.name}</Text>
         </View>
 
         <Text style={styles.label}>Driver</Text>
@@ -155,16 +174,14 @@ export default function LoginScreen({ navigation }) {
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={styles.onboardLink}
-          onPress={() =>
-            Linking.openURL('https://rescuelog-mu.vercel.app/onboard').catch(
-              () => {},
-            )
-          }
+          style={styles.link}
+          onPress={() => navigation.navigate('JoinOrg')}
         >
-          <Text style={styles.onboardLinkText}>
-            New organization? Get started
-          </Text>
+          <Text style={styles.linkText}>Join this organization</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.linkSub} onPress={switchOrg}>
+          <Text style={styles.linkSubText}>Switch organization</Text>
         </TouchableOpacity>
 
         <Text style={styles.footer}>Built for food rescue organizations</Text>
@@ -224,29 +241,20 @@ const styles = StyleSheet.create({
     backgroundColor: colors.bg,
   },
   scroll: { padding: 24, paddingBottom: 40 },
-  header: { alignItems: 'center', marginTop: 24, marginBottom: 28 },
-  logoMark: {
-    width: 60,
-    height: 60,
-    borderRadius: 16,
-    backgroundColor: colors.green,
-    alignItems: 'center',
-    justifyContent: 'center',
+  header: { alignItems: 'center', marginTop: 16, marginBottom: 24 },
+  title: { fontSize: 26, fontWeight: '800', color: colors.ink, marginTop: 10 },
+  orgName: {
+    fontSize: 14,
+    color: colors.gray,
+    marginTop: 4,
+    fontWeight: '600',
+    textAlign: 'center',
   },
-  logoLeaf: {
-    width: 26,
-    height: 26,
-    borderTopLeftRadius: 16,
-    borderBottomRightRadius: 16,
-    backgroundColor: colors.white,
-  },
-  title: { fontSize: 28, fontWeight: '800', color: colors.ink, marginTop: 12 },
-  tagline: { fontSize: 14, color: colors.gray, marginTop: 2 },
   label: {
     fontSize: 14,
     fontWeight: '700',
     color: colors.ink,
-    marginTop: 20,
+    marginTop: 16,
     marginBottom: 8,
   },
   loadError: { color: colors.danger, fontSize: 14 },
@@ -281,21 +289,19 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     paddingVertical: 17,
     alignItems: 'center',
-    marginTop: 24,
+    marginTop: 20,
   },
   buttonDisabled: { opacity: 0.6 },
   buttonText: { color: colors.white, fontSize: 18, fontWeight: '700' },
+  link: { marginTop: 16, alignItems: 'center' },
+  linkText: { fontSize: 15, color: colors.green, fontWeight: '600' },
+  linkSub: { marginTop: 8, alignItems: 'center' },
+  linkSubText: { fontSize: 14, color: colors.gray, fontWeight: '500' },
   footer: {
     textAlign: 'center',
     color: colors.grayLight,
     fontSize: 12,
-    marginTop: 24,
-  },
-  onboardLink: { marginTop: 18, alignItems: 'center' },
-  onboardLinkText: {
-    fontSize: 15,
-    color: colors.green,
-    fontWeight: '600',
+    marginTop: 22,
   },
   modalRoot: { flex: 1, justifyContent: 'flex-end' },
   backdrop: {

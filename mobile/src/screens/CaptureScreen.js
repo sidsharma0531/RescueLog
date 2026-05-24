@@ -19,7 +19,7 @@ import {
   reverseGeocode,
 } from '../services/location';
 import { resizeForUpload } from '../services/image';
-import { getDriver } from '../services/storage';
+import { getDriver, getOrg } from '../services/storage';
 import PhotoGrid from '../components/PhotoGrid';
 import LocationBadge from '../components/LocationBadge';
 import LoadingOverlay from '../components/LoadingOverlay';
@@ -27,6 +27,7 @@ import { colors, radius } from '../theme';
 
 export default function CaptureScreen({ navigation }) {
   const [driver, setDriver] = useState(null);
+  const [org, setOrg] = useState(null);
   const [locationStatus, setLocationStatus] = useState('loading');
   const [coords, setCoords] = useState(null);
   const [matchedLocation, setMatchedLocation] = useState(null);
@@ -41,12 +42,15 @@ export default function CaptureScreen({ navigation }) {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const d = await getDriver();
+      const [d, o] = await Promise.all([getDriver(), getOrg()]);
       if (!d) {
         navigation.replace('Login');
         return;
       }
-      if (!cancelled) setDriver(d);
+      if (!cancelled) {
+        setDriver(d);
+        setOrg(o);
+      }
 
       const [gps, locsRes] = await Promise.all([
         getCurrentLocation(),
@@ -158,6 +162,7 @@ export default function CaptureScreen({ navigation }) {
       // Create the pop-up log.
       const popup = await api.createPopup({
         driver_id: driver.id,
+        organization_id: org?.id || null,
         latitude: coords?.latitude ?? null,
         longitude: coords?.longitude ?? null,
         location_id: locationId,

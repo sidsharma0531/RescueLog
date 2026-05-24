@@ -3,6 +3,10 @@
 const bcrypt = require('bcryptjs');
 const { supabase } = require('./_client');
 
+// Launch-partner org id (seeded by supabase/schema.sql). Existing seeded
+// drivers belong to Second Servings Houston.
+const ORG_ID = '00000000-0000-0000-0000-000000000001';
+
 const DRIVERS = [
   { name: 'Greg', pin: '1234' },
   { name: 'Maria', pin: '2345' },
@@ -29,7 +33,9 @@ async function main() {
       console.log(`  · driver "${d.name}" already exists — skipped`);
       continue;
     }
-    const { error } = await supabase.from('drivers').insert(d);
+    const { error } = await supabase
+      .from('drivers')
+      .insert({ ...d, organization_id: ORG_ID });
     if (error) throw error;
     console.log(`  + driver "${d.name}" (PIN ${d.pin})`);
   }

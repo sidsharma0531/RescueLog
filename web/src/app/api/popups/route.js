@@ -68,6 +68,7 @@ export async function POST(request) {
       .from('popup_logs')
       .insert({
         driver_id: body.driver_id,
+        organization_id: body.organization_id || null,
         location_id: body.location_id || null,
         location_name_manual: manualName || null,
         latitude: numOrNull(body.latitude),

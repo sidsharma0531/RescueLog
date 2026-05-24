@@ -18,7 +18,7 @@ export async function POST(request) {
 
     let query = supabaseAdmin
       .from('drivers')
-      .select('id, name, pin, is_active');
+      .select('id, name, pin, is_active, organization_id');
     query = driver_id
       ? query.eq('id', driver_id)
       : query.eq('name', driver_name);
@@ -27,6 +27,15 @@ export async function POST(request) {
     if (error) throw error;
 
     if (!data || !data.is_active) {
+      return NextResponse.json({ error: 'Driver not found.' }, { status: 404 });
+    }
+    // If the caller specified an organization (the mobile app does), make
+    // sure the driver actually belongs to it — a stale org pick on the
+    // device shouldn't be able to log into a different organization.
+    if (
+      body.organization_id &&
+      data.organization_id !== body.organization_id
+    ) {
       return NextResponse.json({ error: 'Driver not found.' }, { status: 404 });
     }
     if (String(data.pin) !== String(pin).trim()) {

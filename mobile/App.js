@@ -3,6 +3,9 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import OrgSelectScreen from './src/screens/OrgSelectScreen';
+import RegisterOrgScreen from './src/screens/RegisterOrgScreen';
+import JoinOrgScreen from './src/screens/JoinOrgScreen';
 import LoginScreen from './src/screens/LoginScreen';
 import HomeScreen from './src/screens/HomeScreen';
 import CaptureScreen from './src/screens/CaptureScreen';
@@ -16,9 +19,12 @@ export default function App() {
       <StatusBar style="dark" />
       <NavigationContainer>
         <Stack.Navigator
-          initialRouteName="Login"
+          initialRouteName="OrgSelect"
           screenOptions={{ headerShown: false }}
         >
+          <Stack.Screen name="OrgSelect" component={OrgSelectScreen} />
+          <Stack.Screen name="RegisterOrg" component={RegisterOrgScreen} />
+          <Stack.Screen name="JoinOrg" component={JoinOrgScreen} />
           <Stack.Screen name="Login" component={LoginScreen} />
           <Stack.Screen name="Home" component={HomeScreen} />
           <Stack.Screen name="Capture" component={CaptureScreen} />
