@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabase';
+import { supabaseAdmin, PHOTO_BUCKET } from '@/lib/supabase';
 
 export const dynamic = 'force-dynamic';
 
@@ -32,6 +32,53 @@ export async function GET(request, { params }) {
   } catch (e) {
     return NextResponse.json(
       { error: e.message || 'Could not load pop-up.' },
+      { status: 500 },
+    );
+  }
+}
+
+// DELETE /api/popups/[id] — remove a pop-up log, its photo rows (via FK
+// cascade), and the underlying storage objects.
+export async function DELETE(request, { params }) {
+  try {
+    const { id } = params;
+
+    // Grab the storage paths first so we can clean up the bucket before
+    // the popup_photos rows cascade away.
+    const { data: photos, error: fetchErr } = await supabaseAdmin
+      .from('popup_photos')
+      .select('storage_path')
+      .eq('popup_log_id', id);
+    if (fetchErr) throw fetchErr;
+
+    const paths = (photos || [])
+      .map((p) => p.storage_path)
+      .filter(Boolean);
+
+    if (paths.length > 0) {
+      const { error: storageErr } = await supabaseAdmin.storage
+        .from(PHOTO_BUCKET)
+        .remove(paths);
+      if (storageErr) {
+        // Best effort — failing the request would leave the log
+        // half-deleted; orphan storage objects are recoverable.
+        console.warn(
+          '[popups/delete] storage cleanup partial:',
+          storageErr.message,
+        );
+      }
+    }
+
+    const { error: deleteErr } = await supabaseAdmin
+      .from('popup_logs')
+      .delete()
+      .eq('id', id);
+    if (deleteErr) throw deleteErr;
+
+    return NextResponse.json({ success: true });
+  } catch (e) {
+    return NextResponse.json(
+      { error: e.message || 'Could not delete pop-up.' },
       { status: 500 },
     );
   }

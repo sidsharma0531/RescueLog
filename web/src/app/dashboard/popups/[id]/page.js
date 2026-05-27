@@ -1,8 +1,8 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { useParams } from 'next/navigation';
-import { apiGet } from '@/lib/api-client';
+import { useParams, useRouter } from 'next/navigation';
+import { apiGet, apiDelete } from '@/lib/api-client';
 import { categoryLabel } from '@/lib/categories';
 import { formatDateTime, formatLbs, formatConfidence } from '@/lib/format';
 import Card from '@/components/Card';
@@ -13,9 +13,29 @@ import { LoadingBlock, ErrorBlock } from '@/components/Loading';
 
 export default function PopupDetailPage() {
   const { id } = useParams();
+  const router = useRouter();
   const [popup, setPopup] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
+
+  async function handleDelete() {
+    if (deleting) return;
+    const ok = window.confirm(
+      'Are you sure you want to delete this log? This cannot be undone.',
+    );
+    if (!ok) return;
+    setDeleteError('');
+    setDeleting(true);
+    try {
+      await apiDelete(`/api/popups/${id}`);
+      router.push('/dashboard/popups');
+    } catch (e) {
+      setDeleteError(e.message);
+      setDeleting(false);
+    }
+  }
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -139,6 +159,19 @@ export default function PopupDetailPage() {
           </details>
         </Card>
       )}
+
+      <div className="pt-2">
+        <button
+          onClick={handleDelete}
+          disabled={deleting}
+          className="rounded-lg bg-red-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-red-700 disabled:opacity-60"
+        >
+          {deleting ? 'Deleting…' : 'Delete Log'}
+        </button>
+        {deleteError && (
+          <p className="mt-2 text-sm text-red-700">{deleteError}</p>
+        )}
+      </div>
     </div>
   );
 }

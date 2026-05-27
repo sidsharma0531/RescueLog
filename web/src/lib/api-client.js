@@ -22,3 +22,7 @@ export async function apiPost(path, body) {
     }),
   );
 }
+
+export async function apiDelete(path) {
+  return parse(await fetch(path, { method: 'DELETE' }));
+}
