@@ -71,27 +71,9 @@ export function getRecentPopups(driverId, limit = 5) {
   return request(`/api/popups?driver_id=${driverId}&limit=${limit}`);
 }
 
-// Multipart photo upload — React Native fetch builds the multipart body
-// from { uri, name, type } file descriptors; do not set Content-Type
-// manually, fetch picks the boundary itself.
-export async function uploadPhotos(popupId, photoUris) {
-  const form = new FormData();
-  photoUris.forEach((uri, i) => {
-    form.append('photos', { uri, name: `photo-${i}.jpg`, type: 'image/jpeg' });
-  });
-
-  let res;
-  try {
-    res = await fetch(`${API_BASE_URL}/api/popups/${popupId}/photos`, {
-      method: 'POST',
-      body: form,
-    });
-  } catch (e) {
-    throw new Error('Upload failed — check your connection and try again.');
-  }
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    throw new Error(data.error || `Upload failed (${res.status})`);
-  }
-  return data;
+// Photos are uploaded to Supabase Storage directly from the phone (see
+// services/upload.js); here we just hand the resulting URLs to the API so
+// it can run the AI pipeline. `photos` is [{ url, storage_path }].
+export function submitPhotos(popupId, photos) {
+  return postJson(`/api/popups/${popupId}/photos`, { photos });
 }

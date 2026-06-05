@@ -95,8 +95,10 @@ const RESPONSE_SCHEMA = {
   additionalProperties: false,
 };
 
-// Analyze one photo. Returns the parsed AI analysis object, or throws.
-export async function analyzePopupPhoto(photoBase64, mimeType = 'image/jpeg') {
+// Run the vision request for a single image source and return the parsed
+// analysis. `imageSource` is a Claude image-source object — either
+// { type: 'base64', media_type, data } or { type: 'url', url }.
+async function runAnalysis(imageSource) {
   const response = await client.messages.create({
     model: MODEL,
     max_tokens: 3000,
@@ -112,10 +114,7 @@ export async function analyzePopupPhoto(photoBase64, mimeType = 'image/jpeg') {
       {
         role: 'user',
         content: [
-          {
-            type: 'image',
-            source: { type: 'base64', media_type: mimeType, data: photoBase64 },
-          },
+          { type: 'image', source: imageSource },
           {
             type: 'text',
             text: 'Analyze this photo of rescued food at a Pop-Up Grocery Store and return the JSON object.',
@@ -135,6 +134,18 @@ export async function analyzePopupPhoto(photoBase64, mimeType = 'image/jpeg') {
   }
 
   return parseAnalysis(textBlock.text);
+}
+
+// Analyze one photo from base64 bytes. Returns the parsed AI analysis.
+export async function analyzePopupPhoto(photoBase64, mimeType = 'image/jpeg') {
+  return runAnalysis({ type: 'base64', media_type: mimeType, data: photoBase64 });
+}
+
+// Analyze one photo from a public URL. The mobile app now uploads photos
+// straight to Supabase Storage and sends us the URLs, so Claude Vision
+// fetches the image itself — no base64 round-trip through our API.
+export async function analyzePopupPhotoFromUrl(imageUrl) {
+  return runAnalysis({ type: 'url', url: imageUrl });
 }
 
 // Parse + normalize the model output. Structured outputs guarantee valid

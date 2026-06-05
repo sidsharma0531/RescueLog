@@ -120,6 +120,17 @@ create policy "popup-photos public read"
   on storage.objects for select
   using (bucket_id = 'popup-photos');
 
+-- The mobile app uploads photos straight to Storage with the anon key to
+-- bypass Vercel's ~4.5MB request-body limit, so anon needs INSERT on this
+-- one bucket. (Tradeoff: anyone with the public anon key can write to the
+-- popup-photos bucket. Acceptable for this internal tool; harden later
+-- with signed upload URLs if needed.)
+drop policy if exists "popup-photos public upload" on storage.objects;
+create policy "popup-photos public upload"
+  on storage.objects for insert
+  to anon, authenticated
+  with check (bucket_id = 'popup-photos');
+
 -- ---- Seed: launch partner --------------------------------------
 -- Pin Second Servings Houston to a stable UUID so existing drivers can
 -- be migrated and the app has a known starter organization.

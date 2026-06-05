@@ -1,18 +1,22 @@
 import { NextResponse } from 'next/server';
-import { supabaseAdmin, uploadPhoto } from '@/lib/supabase';
-import { analyzePopupPhoto } from '@/lib/anthropic';
+import { supabaseAdmin } from '@/lib/supabase';
+import { analyzePopupPhotoFromUrl } from '@/lib/anthropic';
 import { aggregatePhotoAnalyses } from '@/lib/aggregate';
 
 export const dynamic = 'force-dynamic';
-// Photos are analyzed by Claude Vision in parallel inside this request.
-// 60s gives comfortable headroom for a typical 4-8 photo submission.
+// Claude Vision fetches each photo by URL and analyzes them in parallel.
+// 60s gives comfortable headroom for a large (20+ photo) submission.
 export const maxDuration = 60;
 
-const SUPPORTED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
-const MAX_PHOTOS_PER_REQUEST = 30;
+const MAX_PHOTOS_PER_REQUEST = 40;
 
-// POST /api/popups/[id]/photos — upload photos, run the AI pipeline, and
-// aggregate the result onto the pop-up log.
+// POST /api/popups/[id]/photos
+// Body: { photos: [{ url, storage_path }] }
+//
+// Photos are uploaded to Supabase Storage directly from the mobile app
+// (bypassing Vercel's ~4.5MB request-body limit), so this endpoint only
+// receives URLs. It records the photo rows, runs the AI pipeline against
+// the URLs, and aggregates the result onto the pop-up log.
 export async function POST(request, { params }) {
   const { id: logId } = params;
   try {
@@ -30,21 +34,20 @@ export async function POST(request, { params }) {
       );
     }
 
-    // 2. Pull uploaded files out of the multipart body.
-    const formData = await request.formData();
-    const files = [...formData.getAll('photos'), ...formData.getAll('photo')]
-      .filter(
-        (f) =>
-          f &&
-          typeof f === 'object' &&
-          typeof f.arrayBuffer === 'function' &&
-          f.size > 0,
-      )
+    // 2. Pull the photo URLs out of the JSON body.
+    const body = await request.json().catch(() => ({}));
+    const photos = (Array.isArray(body.photos) ? body.photos : [])
+      .map((p) => ({
+        url: typeof p?.url === 'string' ? p.url.trim() : '',
+        storage_path:
+          typeof p?.storage_path === 'string' ? p.storage_path : null,
+      }))
+      .filter((p) => p.url)
       .slice(0, MAX_PHOTOS_PER_REQUEST);
 
-    if (files.length === 0) {
+    if (photos.length === 0) {
       return NextResponse.json(
-        { error: 'No photos were uploaded.' },
+        { error: 'No photo URLs were provided.' },
         { status: 400 },
       );
     }
@@ -56,30 +59,15 @@ export async function POST(request, { params }) {
       .eq('popup_log_id', logId);
     const baseOrder = existingCount || 0;
 
-    // 4. Upload every file to Supabase Storage in parallel.
-    const uploads = await Promise.all(
-      files.map(async (file, i) => {
-        const buffer = Buffer.from(await file.arrayBuffer());
-        const mime = SUPPORTED_TYPES.includes(file.type)
-          ? file.type
-          : 'image/jpeg';
-        const ext = mime.split('/')[1] || 'jpg';
-        const order = baseOrder + i;
-        const path = `${logId}/${Date.now()}-${order}.${ext}`;
-        const { publicUrl } = await uploadPhoto(buffer, path, mime);
-        return { buffer, mime, order, path, publicUrl };
-      }),
-    );
-
-    // 5. Insert a row per photo.
+    // 4. Insert a row per photo.
     const { data: photoRows, error: insertErr } = await supabaseAdmin
       .from('popup_photos')
       .insert(
-        uploads.map((u) => ({
+        photos.map((p, i) => ({
           popup_log_id: logId,
-          photo_url: u.publicUrl,
-          storage_path: u.path,
-          photo_order: u.order,
+          photo_url: p.url,
+          storage_path: p.storage_path,
+          photo_order: baseOrder + i,
           processing_status: 'processing',
         })),
       )
@@ -88,16 +76,16 @@ export async function POST(request, { params }) {
 
     const rowByOrder = new Map(photoRows.map((r) => [r.photo_order, r]));
 
-    // 6. Analyze every photo with Claude Vision in parallel. allSettled keeps
-    //    one bad photo from failing the whole batch.
+    // 5. Analyze every photo URL with Claude Vision in parallel.
+    //    allSettled keeps one bad photo from failing the whole batch.
     const results = await Promise.allSettled(
-      uploads.map((u) => analyzePopupPhoto(u.buffer.toString('base64'), u.mime)),
+      photos.map((p) => analyzePopupPhotoFromUrl(p.url)),
     );
 
-    // 7. Write each photo's analysis (or error) back to its row.
+    // 6. Write each photo's analysis (or error) back to its row.
     await Promise.all(
       results.map((result, i) => {
-        const row = rowByOrder.get(uploads[i].order);
+        const row = rowByOrder.get(baseOrder + i);
         if (!row) return Promise.resolve();
         if (result.status === 'fulfilled') {
           return supabaseAdmin
@@ -122,7 +110,7 @@ export async function POST(request, { params }) {
       }),
     );
 
-    // 8. Aggregate every completed photo for this log into the log summary.
+    // 7. Aggregate every completed photo for this log into the log summary.
     const { data: allPhotos } = await supabaseAdmin
       .from('popup_photos')
       .select('ai_analysis, processing_status')
@@ -156,7 +144,7 @@ export async function POST(request, { params }) {
       .eq('id', logId);
 
     return NextResponse.json({
-      photos_uploaded: files.length,
+      photos_received: photos.length,
       processing: false,
       status,
       summary,
@@ -172,7 +160,7 @@ export async function POST(request, { params }) {
         () => {},
       );
     return NextResponse.json(
-      { error: e.message || 'Photo upload failed.' },
+      { error: e.message || 'Photo processing failed.' },
       { status: 500 },
     );
   }

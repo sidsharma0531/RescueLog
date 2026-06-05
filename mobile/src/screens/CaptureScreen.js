@@ -19,6 +19,7 @@ import {
   reverseGeocode,
 } from '../services/location';
 import { resizeForUpload } from '../services/image';
+import { uploadPhotosToStorage } from '../services/upload';
 import { getDriver, getOrg } from '../services/storage';
 import PhotoGrid from '../components/PhotoGrid';
 import LocationBadge from '../components/LocationBadge';
@@ -37,6 +38,7 @@ export default function CaptureScreen({ navigation }) {
   const [weightEstimate, setWeightEstimate] = useState('');
   const [notes, setNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(null); // {done,total}|null
   const [permissionMessage, setPermissionMessage] = useState(null);
 
   useEffect(() => {
@@ -141,6 +143,7 @@ export default function CaptureScreen({ navigation }) {
   async function handleSubmit() {
     if (!canSubmit) return;
     setSubmitting(true);
+    setUploadProgress({ done: 0, total: photos.length });
     try {
       // Resolve the location.
       let locationId = null;
@@ -171,11 +174,16 @@ export default function CaptureScreen({ navigation }) {
         notes: notes.trim() || null,
       });
 
-      // Upload photos — this also runs the AI pipeline server-side.
-      await api.uploadPhotos(
-        popup.id,
+      // Upload each photo straight to Supabase Storage (one at a time, so
+      // the driver sees progress), then hand the URLs to the API for AI
+      // analysis. Keeps the large image bytes off the Vercel API.
+      const uploaded = await uploadPhotosToStorage(
         photos.map((p) => p.uri),
+        popup.id,
+        (done, total) => setUploadProgress({ done, total }),
       );
+      setUploadProgress(null); // uploads done — now the AI is analyzing
+      await api.submitPhotos(popup.id, uploaded);
 
       navigation.replace('Confirm', {
         locationName: matchedLocation ? matchedLocation.name : manualName.trim(),
@@ -183,8 +191,19 @@ export default function CaptureScreen({ navigation }) {
       });
     } catch (e) {
       setSubmitting(false);
+      setUploadProgress(null);
       Alert.alert('Submission failed', e.message || 'Please try again.');
     }
+  }
+
+  // Loading-overlay message: per-photo progress while uploading, then a
+  // generic "analyzing" message while the AI runs.
+  let overlayMessage = 'Submitting…';
+  if (uploadProgress) {
+    const n = Math.min(uploadProgress.done + 1, uploadProgress.total);
+    overlayMessage = `Uploading photo ${n} of ${uploadProgress.total}…`;
+  } else if (submitting) {
+    overlayMessage = 'AI is analyzing the food…';
   }
 
   return (
@@ -300,10 +319,7 @@ export default function CaptureScreen({ navigation }) {
         </View>
       </KeyboardAvoidingView>
 
-      <LoadingOverlay
-        visible={submitting}
-        message={'Uploading photos…\nAI is analyzing the food.'}
-      />
+      <LoadingOverlay visible={submitting} message={overlayMessage} />
     </SafeAreaView>
   );
 }
