@@ -37,6 +37,46 @@ export async function GET(request, { params }) {
   }
 }
 
+// PATCH /api/popups/[id] — update editable fields on a pop-up log.
+// Currently supports renaming the location via location_name (written to
+// location_name_manual).
+export async function PATCH(request, { params }) {
+  try {
+    const { id } = params;
+    const body = await request.json().catch(() => ({}));
+    const name =
+      typeof body.location_name === 'string' ? body.location_name.trim() : '';
+
+    if (!name) {
+      return NextResponse.json(
+        { error: 'A location name is required.' },
+        { status: 400 },
+      );
+    }
+
+    const { data, error } = await supabaseAdmin
+      .from('popup_logs')
+      .update({ location_name_manual: name })
+      .eq('id', id)
+      .select('id, location_name_manual')
+      .maybeSingle();
+    if (error) throw error;
+    if (!data) {
+      return NextResponse.json(
+        { error: 'Pop-up log not found.' },
+        { status: 404 },
+      );
+    }
+
+    return NextResponse.json({ success: true, popup: data });
+  } catch (e) {
+    return NextResponse.json(
+      { error: e.message || 'Could not update pop-up.' },
+      { status: 500 },
+    );
+  }
+}
+
 // DELETE /api/popups/[id] — remove a pop-up log, its photo rows (via FK
 // cascade), and the underlying storage objects.
 export async function DELETE(request, { params }) {

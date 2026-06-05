@@ -23,6 +23,16 @@ export async function apiPost(path, body) {
   );
 }
 
+export async function apiPatch(path, body) {
+  return parse(
+    await fetch(path, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body || {}),
+    }),
+  );
+}
+
 export async function apiDelete(path) {
   return parse(await fetch(path, { method: 'DELETE' }));
 }
