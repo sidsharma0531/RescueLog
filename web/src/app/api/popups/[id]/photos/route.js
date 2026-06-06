@@ -4,11 +4,62 @@ import { analyzePopupPhotoFromUrl } from '@/lib/anthropic';
 import { aggregatePhotoAnalyses } from '@/lib/aggregate';
 
 export const dynamic = 'force-dynamic';
-// Claude Vision fetches each photo by URL and analyzes them in parallel.
-// 60s gives comfortable headroom for a large (20+ photo) submission.
+// Claude Vision fetches each photo by URL. Photos are analyzed in small
+// sequential batches (see below) to stay under Anthropic's concurrency
+// rate limits.
 export const maxDuration = 60;
 
 const MAX_PHOTOS_PER_REQUEST = 40;
+
+// Rate-limit-friendly processing. Photos run BATCH_SIZE at a time, batches
+// run one after another with BATCH_DELAY_MS between them, and any photo
+// that hits a 429 waits RETRY_DELAY_MS and retries up to MAX_RETRIES times.
+const BATCH_SIZE = 3;
+const BATCH_DELAY_MS = 1000;
+const RETRY_DELAY_MS = 5000;
+const MAX_RETRIES = 3;
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+// True if an error looks like an Anthropic 429 rate-limit error.
+function isRateLimitError(err) {
+  if (!err) return false;
+  if (err.status === 429 || err.statusCode === 429) return true;
+  return /\b429\b|rate.?limit/i.test(String(err.message || ''));
+}
+
+// Analyze one photo URL, retrying on 429 up to MAX_RETRIES times.
+async function analyzeWithRetry(url) {
+  for (let attempt = 0; ; attempt += 1) {
+    try {
+      return await analyzePopupPhotoFromUrl(url);
+    } catch (err) {
+      if (isRateLimitError(err) && attempt < MAX_RETRIES) {
+        await sleep(RETRY_DELAY_MS);
+        continue;
+      }
+      throw err;
+    }
+  }
+}
+
+// Analyze all photos in sequential batches of BATCH_SIZE, pausing
+// BATCH_DELAY_MS between batches. Returns a settled result per photo, in
+// the same order as the input.
+async function analyzeInBatches(photos) {
+  const results = [];
+  for (let i = 0; i < photos.length; i += BATCH_SIZE) {
+    const batch = photos.slice(i, i + BATCH_SIZE);
+    const batchResults = await Promise.allSettled(
+      batch.map((p) => analyzeWithRetry(p.url)),
+    );
+    results.push(...batchResults);
+    if (i + BATCH_SIZE < photos.length) {
+      await sleep(BATCH_DELAY_MS);
+    }
+  }
+  return results;
+}
 
 // POST /api/popups/[id]/photos
 // Body: { photos: [{ url, storage_path }] }
@@ -76,11 +127,11 @@ export async function POST(request, { params }) {
 
     const rowByOrder = new Map(photoRows.map((r) => [r.photo_order, r]));
 
-    // 5. Analyze every photo URL with Claude Vision in parallel.
-    //    allSettled keeps one bad photo from failing the whole batch.
-    const results = await Promise.allSettled(
-      photos.map((p) => analyzePopupPhotoFromUrl(p.url)),
-    );
+    // 5. Analyze the photo URLs with Claude Vision in small sequential
+    //    batches with 429 retries, so large submissions don't trip
+    //    Anthropic's concurrency rate limits. Order is preserved, so
+    //    results[i] still corresponds to photos[i].
+    const results = await analyzeInBatches(photos);
 
     // 6. Write each photo's analysis (or error) back to its row.
     await Promise.all(
