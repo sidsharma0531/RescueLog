@@ -1,6 +1,6 @@
 # RescueLog
 
-**AI-powered food rescue tracking** — built for [Second Servings Houston](https://secondservings.org).
+**AI-powered food rescue tracking** 
 
 A driver or volunteer photographs rescued food laid out on tables at a Pop-Up
 Grocery Store event. Claude Vision categorizes everything (produce, dairy, meat,
