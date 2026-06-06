@@ -1,13 +1,24 @@
 import { NextResponse } from 'next/server';
+import { waitUntil } from '@vercel/functions';
 import { supabaseAdmin } from '@/lib/supabase';
-import { baseUrlFrom, triggerNextWithRetry } from '@/lib/analyze';
+import { drainBatches } from '@/lib/analyze';
 
 export const dynamic = 'force-dynamic';
-// This route only records photo rows and kicks off the analysis chain, so it
-// returns in a couple seconds regardless of photo count.
 export const maxDuration = 60;
 
 const MAX_PHOTOS_PER_REQUEST = 40;
+
+// Run work after the HTTP response. On Vercel, waitUntil keeps the function
+// alive until the promise settles (bounded by maxDuration); off-Vercel
+// (local dev) it may throw and the promise simply runs detached.
+function runInBackground(promise) {
+  promise.catch(() => {});
+  try {
+    waitUntil(promise);
+  } catch {
+    /* not on Vercel */
+  }
+}
 
 // POST /api/popups/[id]/photos
 // Body: { photos: [{ url, storage_path }] }
@@ -79,24 +90,14 @@ export async function POST(request, { params }) {
       .update({ status: 'processing', photo_count: baseOrder + photos.length })
       .eq('id', logId);
 
-    // 6. Kick off the analysis chain (process-next returns 202 immediately
-    //    and analyzes in the background), then return right away. The
-    //    retrying trigger absorbs a transient hiccup on the first hop.
-    const base = baseUrlFrom(request);
+    // 6. Process as many batches as fit in this function's time budget,
+    //    in the background. No server-to-server self-calls — anything left
+    //    over is finished by the dashboard's poll (process-next). Return
+    //    right away so the upload is never blocked on AI.
     console.log(
-      `[photos] log ${logId}: inserted ${photos.length} photo(s); ` +
-        `kicking off analysis chain via ${base}`,
+      `[photos] log ${logId}: inserted ${photos.length} photo(s); draining batches in background`,
     );
-    const kicked = await triggerNextWithRetry(base, logId, 0);
-    if (kicked) {
-      console.log(`[photos] log ${logId}: analysis chain kicked off`);
-    } else {
-      // Don't fail the user's upload — but make the failure loud. The log
-      // stays 'processing' and can be re-triggered by uploading again.
-      console.error(
-        `[photos] log ${logId}: FAILED to kick off analysis chain after retries`,
-      );
-    }
+    runInBackground(drainBatches(logId));
 
     return NextResponse.json(
       { photos_received: photos.length, status: 'processing' },

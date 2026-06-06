@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { apiGet, apiPatch, apiDelete } from '@/lib/api-client';
+import { apiGet, apiPost, apiPatch, apiDelete } from '@/lib/api-client';
 import { categoryLabel } from '@/lib/categories';
 import { formatDateTime, formatLbs, formatConfidence } from '@/lib/format';
 import Card from '@/components/Card';
@@ -90,13 +90,33 @@ export default function PopupDetailPage() {
     load();
   }, [load]);
 
-  // While the AI is still processing, silently re-fetch every 5s until the
-  // log reaches a terminal status (complete / partial / failed).
+  // While the AI is still processing, this poll IS the processing driver:
+  // each tick calls process-next, which analyzes the next batch of up to 3
+  // pending photos and returns the updated log. Ticks run sequentially (the
+  // next is scheduled only after the previous returns) so a single tab never
+  // overlaps itself. Stops when the log reaches a terminal status.
   useEffect(() => {
     if (popup?.status !== 'processing') return undefined;
-    const timer = setInterval(() => load(true), 5000);
-    return () => clearInterval(timer);
-  }, [popup?.status, load]);
+    let cancelled = false;
+    let timer;
+    const tick = async () => {
+      try {
+        const d = await apiPost(`/api/popups/${id}/process-next`, {});
+        if (cancelled) return;
+        if (d.popup) setPopup(d.popup);
+        if (!cancelled && d.popup?.status === 'processing') {
+          timer = setTimeout(tick, 4000);
+        }
+      } catch {
+        if (!cancelled) timer = setTimeout(tick, 5000); // retry on transient error
+      }
+    };
+    timer = setTimeout(tick, 0);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [popup?.status, id]);
 
   if (loading) return <LoadingBlock label="Loading pop-up…" />;
   if (error) return <ErrorBlock message={error} onRetry={load} />;
