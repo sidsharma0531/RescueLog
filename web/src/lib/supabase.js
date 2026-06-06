@@ -3,13 +3,32 @@ import { createClient } from '@supabase/supabase-js';
 // SERVER-ONLY. This client uses the service-role key, which bypasses Row
 // Level Security. Never import this file into a client component.
 
-const supabaseUrl = process.env.SUPABASE_URL;
-const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+// Sanitize the URL: a stray trailing space/newline (easy to paste into a
+// Vercel env var) gets baked into signed-URL hosts as "...supabase.co%20",
+// which fails DNS with ERR_NAME_NOT_RESOLVED in the browser. Trim whitespace
+// and any trailing slashes.
+const rawSupabaseUrl = process.env.SUPABASE_URL || '';
+const supabaseUrl = rawSupabaseUrl.trim().replace(/\/+$/, '');
+const serviceRoleKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || '').trim();
 
-if (!supabaseUrl || !serviceRoleKey) {
+function isValidHttpUrl(value) {
+  try {
+    const u = new URL(value);
+    return (
+      (u.protocol === 'https:' || u.protocol === 'http:') &&
+      !!u.hostname &&
+      u.hostname !== 'localhost'
+    );
+  } catch {
+    return false;
+  }
+}
+
+if (!isValidHttpUrl(supabaseUrl) || !serviceRoleKey) {
   console.warn(
-    '[supabase] SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY is not set — ' +
-      'database calls will fail. Check web/.env.local.',
+    '[supabase] SUPABASE_URL is missing/malformed or SUPABASE_SERVICE_ROLE_KEY ' +
+      `is unset. SUPABASE_URL raw=${JSON.stringify(rawSupabaseUrl)} ` +
+      `sanitized=${JSON.stringify(supabaseUrl)}. Check the Vercel env vars.`,
   );
 }
 
@@ -47,12 +66,25 @@ export async function withSignedPhotoUrls(photos, expiresIn = 86400) {
     const { data, error } = await supabaseAdmin.storage
       .from(PHOTO_BUCKET)
       .createSignedUrls(paths, expiresIn);
-    if (error || !data) return list;
+    if (error || !data) {
+      console.warn('[photos] createSignedUrls failed:', error?.message || 'no data');
+      return list;
+    }
+
+    // Diagnostics: surface what the signing actually produced.
+    console.log(
+      `[photos] signing ${paths.length} url(s) with base ${JSON.stringify(supabaseUrl)}; sample=`,
+      data[0]?.signedUrl,
+    );
 
     const signedByPath = new Map();
     for (const item of data) {
-      if (item && item.path && item.signedUrl) {
+      // Only use a signed URL if it's a well-formed absolute URL with a real
+      // host — otherwise fall back to the stored public URL below.
+      if (item && item.path && item.signedUrl && isValidHttpUrl(item.signedUrl)) {
         signedByPath.set(item.path, item.signedUrl);
+      } else if (item && item.signedUrl) {
+        console.warn('[photos] discarding malformed signed URL:', item.signedUrl);
       }
     }
 
@@ -60,7 +92,8 @@ export async function withSignedPhotoUrls(photos, expiresIn = 86400) {
       const signed = p.storage_path ? signedByPath.get(p.storage_path) : null;
       return signed ? { ...p, photo_url: signed } : p;
     });
-  } catch {
+  } catch (e) {
+    console.warn('[photos] signing threw:', e?.message || e);
     return list; // never let signing break the response
   }
 }
