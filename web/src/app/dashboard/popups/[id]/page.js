@@ -68,22 +68,35 @@ export default function PopupDetailPage() {
     }
   }
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError('');
-    try {
-      const d = await apiGet(`/api/popups/${id}`);
-      setPopup(d.popup);
-    } catch (e) {
-      setError(e.message);
-    } finally {
-      setLoading(false);
-    }
-  }, [id]);
+  // `silent` refreshes (used by polling) don't toggle the full-page
+  // spinner or surface transient errors.
+  const load = useCallback(
+    async (silent = false) => {
+      if (!silent) setLoading(true);
+      setError('');
+      try {
+        const d = await apiGet(`/api/popups/${id}`);
+        setPopup(d.popup);
+      } catch (e) {
+        if (!silent) setError(e.message);
+      } finally {
+        if (!silent) setLoading(false);
+      }
+    },
+    [id],
+  );
 
   useEffect(() => {
     load();
   }, [load]);
+
+  // While the AI is still processing, silently re-fetch every 5s until the
+  // log reaches a terminal status (complete / partial / failed).
+  useEffect(() => {
+    if (popup?.status !== 'processing') return undefined;
+    const timer = setInterval(() => load(true), 5000);
+    return () => clearInterval(timer);
+  }, [popup?.status, load]);
 
   if (loading) return <LoadingBlock label="Loading pop-up…" />;
   if (error) return <ErrorBlock message={error} onRetry={load} />;
@@ -178,9 +191,9 @@ export default function PopupDetailPage() {
 
       {popup.status === 'processing' && (
         <div className="flex items-center justify-between rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-800">
-          <span>AI analysis is still processing.</span>
-          <button onClick={load} className="font-semibold underline">
-            Refresh
+          <span>AI analysis is still processing — this updates automatically.</span>
+          <button onClick={() => load(true)} className="font-semibold underline">
+            Refresh now
           </button>
         </div>
       )}

@@ -10,8 +10,8 @@ export const API_BASE_URL = 'https://rescuelog-mu.vercel.app';
 // request-body limit), so it needs the project URL and the ANON (public)
 // key. The anon key is designed to ship in client apps — NEVER put the
 // service-role key here.
-export const SUPABASE_URL = 'https://your-project.supabase.co';
-export const SUPABASE_ANON_KEY = 'your-anon-public-key';
+export const SUPABASE_URL = 'https://lsnrhofvanrhhnntblmc.supabase.co';
+export const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxzbnJob2Z2YW5yaGhubnRibG1jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg5NTA2NzUsImV4cCI6MjA5NDUyNjY3NX0.drKVPiyQO6kE6CXQ8VviitBgpl1fmfxfKOjA0xoRBEY';
 
 // Two pop-up logs within this many meters count as the same site.
 export const LOCATION_MATCH_RADIUS_METERS = 200;
