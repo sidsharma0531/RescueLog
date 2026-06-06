@@ -38,27 +38,49 @@ export async function GET(request, { params }) {
 }
 
 // PATCH /api/popups/[id] — update editable fields on a pop-up log.
-// Currently supports renaming the location via location_name (written to
-// location_name_manual).
+// Supports renaming the location via location_name (written to
+// location_name_manual) and editing the event time via logged_at.
 export async function PATCH(request, { params }) {
   try {
     const { id } = params;
     const body = await request.json().catch(() => ({}));
-    const name =
-      typeof body.location_name === 'string' ? body.location_name.trim() : '';
+    const update = {};
 
-    if (!name) {
+    if (body.location_name !== undefined) {
+      const name =
+        typeof body.location_name === 'string' ? body.location_name.trim() : '';
+      if (!name) {
+        return NextResponse.json(
+          { error: 'A location name is required.' },
+          { status: 400 },
+        );
+      }
+      update.location_name_manual = name;
+    }
+
+    if (body.logged_at !== undefined) {
+      const when = new Date(body.logged_at);
+      if (Number.isNaN(when.getTime())) {
+        return NextResponse.json(
+          { error: 'A valid date and time is required.' },
+          { status: 400 },
+        );
+      }
+      update.logged_at = when.toISOString();
+    }
+
+    if (Object.keys(update).length === 0) {
       return NextResponse.json(
-        { error: 'A location name is required.' },
+        { error: 'Nothing to update.' },
         { status: 400 },
       );
     }
 
     const { data, error } = await supabaseAdmin
       .from('popup_logs')
-      .update({ location_name_manual: name })
+      .update(update)
       .eq('id', id)
-      .select('id, location_name_manual')
+      .select('id, location_name_manual, logged_at')
       .maybeSingle();
     if (error) throw error;
     if (!data) {

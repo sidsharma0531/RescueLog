@@ -23,6 +23,53 @@ export default function PopupDetailPage() {
   const [nameDraft, setNameDraft] = useState('');
   const [savingName, setSavingName] = useState(false);
   const [nameError, setNameError] = useState('');
+  const [editingDate, setEditingDate] = useState(false);
+  const [dateDraft, setDateDraft] = useState('');
+  const [savingDate, setSavingDate] = useState(false);
+  const [dateError, setDateError] = useState('');
+
+  // ISO timestamp -> the local "YYYY-MM-DDTHH:mm" a datetime-local input wants.
+  function toDateTimeLocal(iso) {
+    const d = iso ? new Date(iso) : new Date();
+    if (Number.isNaN(d.getTime())) return '';
+    const pad = (n) => String(n).padStart(2, '0');
+    return (
+      `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}` +
+      `T${pad(d.getHours())}:${pad(d.getMinutes())}`
+    );
+  }
+
+  function startEditDate() {
+    setDateDraft(toDateTimeLocal(popup.logged_at));
+    setDateError('');
+    setEditingDate(true);
+  }
+
+  async function saveDate() {
+    if (!dateDraft) {
+      setDateError('Pick a date and time.');
+      return;
+    }
+    // dateDraft is local time; new Date() reads it in the browser's tz and
+    // toISOString() normalizes to UTC for storage.
+    const when = new Date(dateDraft);
+    if (Number.isNaN(when.getTime())) {
+      setDateError('Invalid date and time.');
+      return;
+    }
+    const iso = when.toISOString();
+    setSavingDate(true);
+    setDateError('');
+    try {
+      await apiPatch(`/api/popups/${id}`, { logged_at: iso });
+      setPopup((p) => ({ ...p, logged_at: iso }));
+      setEditingDate(false);
+    } catch (e) {
+      setDateError(e.message);
+    } finally {
+      setSavingDate(false);
+    }
+  }
 
   function startEditName() {
     setNameDraft(
@@ -203,10 +250,64 @@ export default function PopupDetailPage() {
           <StatusBadge status={popup.status} />
         </div>
         {nameError && <p className="mt-1 text-sm text-red-600">{nameError}</p>}
-        <p className="mt-1 text-sm text-gray-500">
-          {formatDateTime(popup.logged_at)} · Logged by{' '}
-          {popup.driver?.name || 'Unknown driver'}
-        </p>
+        <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-gray-500">
+          {editingDate ? (
+            <div className="flex flex-wrap items-center gap-2">
+              <input
+                type="datetime-local"
+                value={dateDraft}
+                onChange={(e) => setDateDraft(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') saveDate();
+                  if (e.key === 'Escape') setEditingDate(false);
+                }}
+                autoFocus
+                className="rounded-lg border border-gray-300 px-2.5 py-1 text-sm text-rescue-ink outline-none focus:border-rescue-green focus:ring-1 focus:ring-rescue-green"
+              />
+              <button
+                onClick={saveDate}
+                disabled={savingDate}
+                className="rounded-lg bg-rescue-green px-3 py-1 text-xs font-semibold text-white hover:bg-rescue-green-dark disabled:opacity-60"
+              >
+                {savingDate ? 'Saving…' : 'Save'}
+              </button>
+              <button
+                onClick={() => setEditingDate(false)}
+                className="rounded-lg border border-gray-300 px-3 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+            </div>
+          ) : (
+            <span className="inline-flex items-center gap-1.5">
+              {formatDateTime(popup.logged_at)}
+              <button
+                onClick={startEditDate}
+                title="Edit date & time"
+                aria-label="Edit date and time"
+                className="rounded-md p-0.5 text-gray-400 transition hover:bg-gray-100 hover:text-rescue-green"
+              >
+                <svg
+                  width="15"
+                  height="15"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  aria-hidden="true"
+                >
+                  <path
+                    d="M4 20h4l10.5-10.5a2.121 2.121 0 00-3-3L5 17v3z"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              </button>
+            </span>
+          )}
+          <span>· Logged by {popup.driver?.name || 'Unknown driver'}</span>
+        </div>
+        {dateError && <p className="mt-1 text-sm text-red-600">{dateError}</p>}
       </div>
 
       {popup.status === 'processing' && (
