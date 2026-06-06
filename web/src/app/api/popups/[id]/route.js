@@ -1,5 +1,9 @@
 import { NextResponse } from 'next/server';
-import { supabaseAdmin, PHOTO_BUCKET } from '@/lib/supabase';
+import {
+  supabaseAdmin,
+  PHOTO_BUCKET,
+  withSignedPhotoUrls,
+} from '@/lib/supabase';
 
 export const dynamic = 'force-dynamic';
 
@@ -28,7 +32,10 @@ export async function GET(request, { params }) {
       .order('photo_order', { ascending: true });
     if (photoErr) throw photoErr;
 
-    return NextResponse.json({ popup: { ...popup, photos: photos || [] } });
+    // Serve signed URLs so images load regardless of the bucket's public
+    // flag / read policy.
+    const signedPhotos = await withSignedPhotoUrls(photos);
+    return NextResponse.json({ popup: { ...popup, photos: signedPhotos } });
   } catch (e) {
     return NextResponse.json(
       { error: e.message || 'Could not load pop-up.' },

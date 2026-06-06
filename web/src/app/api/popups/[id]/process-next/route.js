@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabase';
+import { supabaseAdmin, withSignedPhotoUrls } from '@/lib/supabase';
 import { processPopupBatch } from '@/lib/analyze';
 
 export const dynamic = 'force-dynamic';
@@ -53,7 +53,8 @@ export async function POST(request, { params }) {
       .eq('popup_log_id', logId)
       .order('photo_order', { ascending: true });
 
-    return NextResponse.json({ popup: { ...popup, photos: photos || [] } });
+    const signedPhotos = await withSignedPhotoUrls(photos);
+    return NextResponse.json({ popup: { ...popup, photos: signedPhotos } });
   } catch (e) {
     return NextResponse.json(
       { error: e.message || 'Could not process photos.' },
