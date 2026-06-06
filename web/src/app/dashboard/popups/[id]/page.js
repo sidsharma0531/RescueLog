@@ -27,6 +27,35 @@ export default function PopupDetailPage() {
   const [dateDraft, setDateDraft] = useState('');
   const [savingDate, setSavingDate] = useState(false);
   const [dateError, setDateError] = useState('');
+  const [addingEstimate, setAddingEstimate] = useState(false);
+  const [estimateDraft, setEstimateDraft] = useState('');
+  const [savingEstimate, setSavingEstimate] = useState(false);
+  const [estimateError, setEstimateError] = useState('');
+
+  function startAddEstimate() {
+    setEstimateDraft('');
+    setEstimateError('');
+    setAddingEstimate(true);
+  }
+
+  async function saveEstimate() {
+    const lbs = Number(estimateDraft);
+    if (estimateDraft === '' || Number.isNaN(lbs) || lbs < 0) {
+      setEstimateError('Enter a weight in lbs.');
+      return;
+    }
+    setSavingEstimate(true);
+    setEstimateError('');
+    try {
+      await apiPatch(`/api/popups/${id}`, { manual_estimate_lbs: lbs });
+      setPopup((p) => ({ ...p, manual_estimate_lbs: lbs }));
+      setAddingEstimate(false);
+    } catch (e) {
+      setEstimateError(e.message);
+    } finally {
+      setSavingEstimate(false);
+    }
+  }
 
   // ISO timestamp -> the local "YYYY-MM-DDTHH:mm" a datetime-local input wants.
   function toDateTimeLocal(iso) {
@@ -175,10 +204,22 @@ export default function PopupDetailPage() {
     popup.location_name_manual || popup.location?.name || 'Unknown site';
   const summary = popup.ai_category_summary || {};
   const aiW = popup.ai_total_weight;
-  const drvW = popup.driver_weight_estimate;
-  let diffPct = summary.estimate_difference_pct;
-  if (diffPct == null && aiW != null && drvW) {
-    diffPct = Math.round(((aiW - drvW) / drvW) * 1000) / 10;
+  // Comparison estimate: the driver's app estimate if present, otherwise an
+  // admin-entered manual reference. Only when one exists do we show the
+  // comparison + difference boxes.
+  const driverW = popup.driver_weight_estimate;
+  const manualW = popup.manual_estimate_lbs;
+  const comparisonW = driverW != null ? driverW : manualW != null ? manualW : null;
+  const comparisonIsManual = driverW == null && manualW != null;
+  const hasComparison = comparisonW != null;
+  let lbDiff = null;
+  let pctDiff = null;
+  if (hasComparison && aiW != null) {
+    lbDiff = Math.round(aiW - comparisonW);
+    pctDiff =
+      comparisonW !== 0
+        ? Math.round(((aiW - comparisonW) / comparisonW) * 1000) / 10
+        : null;
   }
 
   return (
@@ -319,24 +360,102 @@ export default function PopupDetailPage() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <CompareCard
-          label="AI estimate"
-          value={aiW != null ? formatLbs(aiW) : '—'}
-          accent="green"
-        />
-        <CompareCard
-          label="Driver estimate"
-          value={drvW != null ? formatLbs(drvW) : 'Not provided'}
-          accent="gray"
-        />
-        <CompareCard
-          label="Difference"
-          value={diffPct != null ? `${diffPct > 0 ? '+' : ''}${diffPct}%` : '—'}
-          sub={diffPct != null ? 'AI vs. driver' : 'Needs both estimates'}
-          accent="orange"
-        />
-      </div>
+      {hasComparison ? (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <CompareCard
+            label="AI estimate"
+            value={aiW != null ? formatLbs(aiW) : '—'}
+            accent="green"
+          />
+          <CompareCard
+            label={comparisonIsManual ? 'Reference estimate' : 'Driver estimate'}
+            value={formatLbs(comparisonW)}
+            sub={comparisonIsManual ? 'Manually entered' : "Driver's app estimate"}
+            accent="gray"
+          />
+          <CompareCard
+            label="Difference"
+            value={
+              lbDiff != null
+                ? `${lbDiff > 0 ? '+' : ''}${formatLbs(lbDiff)}`
+                : '—'
+            }
+            sub={
+              pctDiff != null
+                ? `${pctDiff > 0 ? '+' : ''}${pctDiff}% vs ${
+                    comparisonIsManual ? 'reference' : 'driver'
+                  }`
+                : 'AI vs. estimate'
+            }
+            accent="orange"
+          />
+        </div>
+      ) : (
+        <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
+                AI estimated weight
+              </p>
+              <p className="mt-1 text-3xl font-bold text-rescue-green">
+                {aiW != null ? formatLbs(aiW) : '—'}
+              </p>
+            </div>
+            {!addingEstimate && (
+              <button
+                onClick={startAddEstimate}
+                className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 transition hover:border-rescue-green hover:text-rescue-green"
+              >
+                Add comparison estimate
+              </button>
+            )}
+          </div>
+
+          {addingEstimate && (
+            <div className="mt-4 border-t border-gray-100 pt-4">
+              <label className="block text-sm font-medium text-gray-700">
+                Reference weight (lbs)
+              </label>
+              <p className="mb-2 text-xs text-gray-400">
+                e.g. the number your paper process recorded — we&apos;ll
+                compare it against the AI estimate.
+              </p>
+              <div className="flex flex-wrap items-center gap-2">
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  min="0"
+                  value={estimateDraft}
+                  onChange={(e) => setEstimateDraft(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') saveEstimate();
+                    if (e.key === 'Escape') setAddingEstimate(false);
+                  }}
+                  autoFocus
+                  placeholder="lbs"
+                  className="w-32 rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-rescue-green focus:ring-1 focus:ring-rescue-green"
+                />
+                <button
+                  onClick={saveEstimate}
+                  disabled={savingEstimate}
+                  className="rounded-lg bg-rescue-green px-4 py-2 text-sm font-semibold text-white hover:bg-rescue-green-dark disabled:opacity-60"
+                >
+                  {savingEstimate ? 'Saving…' : 'Save'}
+                </button>
+                <button
+                  onClick={() => setAddingEstimate(false)}
+                  className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+              </div>
+              {estimateError && (
+                <p className="mt-2 text-sm text-red-600">{estimateError}</p>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       <Card title="AI category breakdown">
         <CategoryChart data={summary.categories} variant="bars" />

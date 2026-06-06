@@ -63,6 +63,7 @@ create table if not exists popup_logs (
   latitude               double precision,
   longitude              double precision,
   driver_weight_estimate numeric,
+  manual_estimate_lbs    numeric,   -- admin-entered reference weight (dashboard)
   ai_total_weight        numeric,
   ai_category_summary    jsonb,
   status                 text default 'processing',  -- processing | complete | partial | failed

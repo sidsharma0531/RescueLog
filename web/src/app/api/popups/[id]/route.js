@@ -69,6 +69,21 @@ export async function PATCH(request, { params }) {
       update.logged_at = when.toISOString();
     }
 
+    if (body.manual_estimate_lbs !== undefined) {
+      if (body.manual_estimate_lbs === null) {
+        update.manual_estimate_lbs = null; // allow clearing
+      } else {
+        const lbs = Number(body.manual_estimate_lbs);
+        if (Number.isNaN(lbs) || lbs < 0) {
+          return NextResponse.json(
+            { error: 'A valid weight is required.' },
+            { status: 400 },
+          );
+        }
+        update.manual_estimate_lbs = lbs;
+      }
+    }
+
     if (Object.keys(update).length === 0) {
       return NextResponse.json(
         { error: 'Nothing to update.' },
@@ -80,7 +95,7 @@ export async function PATCH(request, { params }) {
       .from('popup_logs')
       .update(update)
       .eq('id', id)
-      .select('id, location_name_manual, logged_at')
+      .select('id, location_name_manual, logged_at, manual_estimate_lbs')
       .maybeSingle();
     if (error) throw error;
     if (!data) {
