@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
-import { baseUrlFrom, triggerProcessNext } from '@/lib/analyze';
+import { baseUrlFrom, triggerNextWithRetry } from '@/lib/analyze';
 
 export const dynamic = 'force-dynamic';
 // This route only records photo rows and kicks off the analysis chain, so it
@@ -80,22 +80,21 @@ export async function POST(request, { params }) {
       .eq('id', logId);
 
     // 6. Kick off the analysis chain (process-next returns 202 immediately
-    //    and analyzes in the background), then return right away.
+    //    and analyzes in the background), then return right away. The
+    //    retrying trigger absorbs a transient hiccup on the first hop.
     const base = baseUrlFrom(request);
     console.log(
       `[photos] log ${logId}: inserted ${photos.length} photo(s); ` +
         `kicking off analysis chain via ${base}`,
     );
-    try {
-      await triggerProcessNext(base, logId);
+    const kicked = await triggerNextWithRetry(base, logId, 0);
+    if (kicked) {
       console.log(`[photos] log ${logId}: analysis chain kicked off`);
-    } catch (e) {
-      // Log loudly — don't fail the user's upload, but make sure a failed
-      // kickoff is visible instead of dying silently. The log stays
-      // 'processing' and can be re-triggered by uploading again.
+    } else {
+      // Don't fail the user's upload — but make the failure loud. The log
+      // stays 'processing' and can be re-triggered by uploading again.
       console.error(
-        `[photos] log ${logId}: FAILED to kick off analysis chain:`,
-        e?.message || e,
+        `[photos] log ${logId}: FAILED to kick off analysis chain after retries`,
       );
     }
 
