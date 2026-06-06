@@ -1,36 +1,22 @@
 import { NextResponse } from 'next/server';
-import { waitUntil } from '@vercel/functions';
 import { supabaseAdmin } from '@/lib/supabase';
-import { analyzeLogPhotos } from '@/lib/analyze';
+import { baseUrlFrom, triggerProcessNext } from '@/lib/analyze';
 
 export const dynamic = 'force-dynamic';
-// This route only records photo rows and kicks off analysis in the
-// background, so it returns in a couple seconds regardless of photo count.
+// This route only records photo rows and kicks off the analysis chain, so it
+// returns in a couple seconds regardless of photo count.
 export const maxDuration = 60;
 
 const MAX_PHOTOS_PER_REQUEST = 40;
-
-// Schedule background work that outlives the HTTP response. On Vercel,
-// waitUntil keeps the function alive until the promise settles (bounded by
-// maxDuration). Off-Vercel (local dev), it may throw — the promise still
-// runs detached, which is fine because the dev server isn't frozen.
-function runInBackground(promise) {
-  promise.catch(() => {}); // avoid unhandled-rejection noise
-  try {
-    waitUntil(promise);
-  } catch {
-    /* not on Vercel — promise already running */
-  }
-}
 
 // POST /api/popups/[id]/photos
 // Body: { photos: [{ url, storage_path }] }
 //
 // Photos are uploaded to Supabase Storage directly from the mobile app, so
-// this endpoint only receives URLs. It records the photo rows, returns
-// immediately with status 'processing', and runs the (slow) AI analysis in
-// the background. The dashboard polls the log until it reaches a terminal
-// status.
+// this endpoint only receives URLs. It records the photo rows, kicks off the
+// self-chaining analysis queue (process-next), and returns immediately with
+// status 'processing'. The dashboard polls the log until it reaches a
+// terminal status.
 export async function POST(request, { params }) {
   const { id: logId } = params;
   try {
@@ -93,8 +79,14 @@ export async function POST(request, { params }) {
       .update({ status: 'processing', photo_count: baseOrder + photos.length })
       .eq('id', logId);
 
-    // 6. Run the AI pipeline in the background and return right away.
-    runInBackground(analyzeLogPhotos(logId));
+    // 6. Kick off the analysis chain (process-next returns 202 immediately
+    //    and analyzes in the background), then return right away.
+    try {
+      await triggerProcessNext(baseUrlFrom(request), logId);
+    } catch {
+      // If the kickoff didn't go through, the log stays 'processing' and can
+      // be re-triggered by uploading again; don't fail the user's request.
+    }
 
     return NextResponse.json(
       { photos_received: photos.length, status: 'processing' },

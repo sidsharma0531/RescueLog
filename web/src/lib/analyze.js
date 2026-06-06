@@ -2,18 +2,22 @@ import { supabaseAdmin } from './supabase';
 import { analyzePopupPhotoFromUrl } from './anthropic';
 import { aggregatePhotoAnalyses } from './aggregate';
 
-// SERVER-ONLY. Runs the AI pipeline for a pop-up log's photos. Intended to
-// be invoked as a background task (via waitUntil) so the request that
-// triggers it can return immediately — large submissions used to blow past
-// the Vercel function timeout while the caller waited for analysis.
+// SERVER-ONLY. AI pipeline for a pop-up log's photos, run as a self-chaining
+// queue: each invocation analyzes only ONE batch (up to BATCH_SIZE photos)
+// and then triggers the next invocation, so no single Vercel function ever
+// approaches the 60s limit no matter how many photos were submitted.
 
-// Rate-limit-friendly processing. Photos run BATCH_SIZE at a time, batches
-// run one after another with BATCH_DELAY_MS between them, and any photo
-// that hits a 429 waits RETRY_DELAY_MS and retries up to MAX_RETRIES times.
-const BATCH_SIZE = 3;
-const BATCH_DELAY_MS = 1000;
+// Photos per invocation. 3 photos (analyzed in parallel) ≈ 15s worst case,
+// well under the 60s function ceiling.
+export const BATCH_SIZE = 3;
+
+// 429 handling: wait RETRY_DELAY_MS and retry up to MAX_RETRIES times.
 const RETRY_DELAY_MS = 5000;
 const MAX_RETRIES = 3;
+
+// Statuses that still need analysis. 'failed' photos are terminal — the
+// chain does not retry them (analyzeWithRetry already exhausted 429 retries).
+const PENDING_STATUSES = ['processing', 'pending'];
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -40,8 +44,7 @@ async function analyzeWithRetry(url) {
 }
 
 // Re-aggregate the log's completed photos into its summary. When `finalize`
-// (or nothing is left to process) it also writes the terminal status so the
-// dashboard can stop polling.
+// is true it also writes the terminal status so the dashboard stops polling.
 async function refreshLogSummary(logId, driverWeightEstimate, finalize) {
   const { data: allPhotos } = await supabaseAdmin
     .from('popup_photos')
@@ -53,10 +56,6 @@ async function refreshLogSummary(logId, driverWeightEstimate, finalize) {
     (p) => p.processing_status === 'complete' && p.ai_analysis,
   );
   const failed = photos.filter((p) => p.processing_status === 'failed').length;
-  const stillPending = photos.filter(
-    (p) =>
-      p.processing_status === 'processing' || p.processing_status === 'pending',
-  ).length;
 
   const summary = aggregatePhotoAnalyses(
     completed.map((p) => p.ai_analysis),
@@ -69,8 +68,7 @@ async function refreshLogSummary(logId, driverWeightEstimate, finalize) {
     photo_count: photos.length,
   };
 
-  // Set a terminal status only when finalizing or when nothing is pending.
-  if (finalize || stillPending === 0) {
+  if (finalize) {
     if (completed.length === 0) update.status = 'failed';
     else if (failed > 0) update.status = 'partial';
     else update.status = 'complete';
@@ -80,78 +78,112 @@ async function refreshLogSummary(logId, driverWeightEstimate, finalize) {
   await supabaseAdmin.from('popup_logs').update(update).eq('id', logId);
 }
 
-// Analyze every not-yet-complete photo on a log, updating rows and the log
-// aggregate as it goes so a polling dashboard sees incremental progress.
-export async function analyzeLogPhotos(logId) {
-  try {
-    const { data: log } = await supabaseAdmin
-      .from('popup_logs')
-      .select('id, driver_weight_estimate')
-      .eq('id', logId)
-      .maybeSingle();
-    if (!log) return;
+// Process ONE batch (up to BATCH_SIZE pending photos) for a log: analyze
+// them, update their rows, and refresh the aggregate. Returns { done } —
+// done=true means no photos remain and the log has been finalized; done=false
+// means the caller should trigger the next link in the chain.
+export async function processPopupBatch(logId) {
+  const { data: log } = await supabaseAdmin
+    .from('popup_logs')
+    .select('id, driver_weight_estimate')
+    .eq('id', logId)
+    .maybeSingle();
+  if (!log) return { done: true };
 
-    const { data: photoRows } = await supabaseAdmin
-      .from('popup_photos')
-      .select('id, photo_url, processing_status')
-      .eq('popup_log_id', logId)
-      .order('photo_order', { ascending: true });
+  const { data: batch } = await supabaseAdmin
+    .from('popup_photos')
+    .select('id, photo_url')
+    .eq('popup_log_id', logId)
+    .in('processing_status', PENDING_STATUSES)
+    .order('photo_order', { ascending: true })
+    .limit(BATCH_SIZE);
 
-    const pending = (photoRows || []).filter(
-      (p) => p.processing_status !== 'complete',
-    );
-
-    // Nothing to analyze — just (re)finalize the summary.
-    if (pending.length === 0) {
-      await refreshLogSummary(logId, log.driver_weight_estimate, true);
-      return;
-    }
-
-    for (let i = 0; i < pending.length; i += BATCH_SIZE) {
-      const batch = pending.slice(i, i + BATCH_SIZE);
-      const results = await Promise.allSettled(
-        batch.map((p) => analyzeWithRetry(p.photo_url)),
-      );
-
-      await Promise.all(
-        results.map((result, j) => {
-          const row = batch[j];
-          if (result.status === 'fulfilled') {
-            return supabaseAdmin
-              .from('popup_photos')
-              .update({
-                ai_analysis: result.value,
-                ai_confidence: result.value.overall_confidence ?? null,
-                processing_status: 'complete',
-                processing_error: null,
-              })
-              .eq('id', row.id);
-          }
-          return supabaseAdmin
-            .from('popup_photos')
-            .update({
-              processing_status: 'failed',
-              processing_error: String(
-                result.reason?.message || result.reason || 'AI analysis failed',
-              ),
-            })
-            .eq('id', row.id);
-        }),
-      );
-
-      const isLastBatch = i + BATCH_SIZE >= pending.length;
-      await refreshLogSummary(logId, log.driver_weight_estimate, isLastBatch);
-      if (!isLastBatch) await sleep(BATCH_DELAY_MS);
-    }
-  } catch (e) {
-    // Mark the log failed so the dashboard stops polling on a hard error.
-    await supabaseAdmin
-      .from('popup_logs')
-      .update({ status: 'failed', processed_at: new Date().toISOString() })
-      .eq('id', logId)
-      .then(
-        () => {},
-        () => {},
-      );
+  // Nothing pending — make sure the summary + status are finalized.
+  if (!batch || batch.length === 0) {
+    await refreshLogSummary(logId, log.driver_weight_estimate, true);
+    return { done: true };
   }
+
+  const results = await Promise.allSettled(
+    batch.map((p) => analyzeWithRetry(p.photo_url)),
+  );
+
+  await Promise.all(
+    results.map((result, j) => {
+      const row = batch[j];
+      if (result.status === 'fulfilled') {
+        return supabaseAdmin
+          .from('popup_photos')
+          .update({
+            ai_analysis: result.value,
+            ai_confidence: result.value.overall_confidence ?? null,
+            processing_status: 'complete',
+            processing_error: null,
+          })
+          .eq('id', row.id);
+      }
+      return supabaseAdmin
+        .from('popup_photos')
+        .update({
+          processing_status: 'failed',
+          processing_error: String(
+            result.reason?.message || result.reason || 'AI analysis failed',
+          ),
+        })
+        .eq('id', row.id);
+    }),
+  );
+
+  // Any photos left to process after this batch?
+  const { count: remaining } = await supabaseAdmin
+    .from('popup_photos')
+    .select('id', { count: 'exact', head: true })
+    .eq('popup_log_id', logId)
+    .in('processing_status', PENDING_STATUSES);
+
+  const done = !remaining || remaining === 0;
+  await refreshLogSummary(logId, log.driver_weight_estimate, done);
+  return { done };
+}
+
+// Mark a log failed (used when a batch throws) so polling stops.
+export async function markLogFailed(logId) {
+  await supabaseAdmin
+    .from('popup_logs')
+    .update({ status: 'failed', processed_at: new Date().toISOString() })
+    .eq('id', logId)
+    .then(
+      () => {},
+      () => {},
+    );
+}
+
+// Shared secret for internal self-calls. Falls back to a dev default so the
+// chain also works locally without extra setup; set ADMIN_SESSION_SECRET in
+// production for real protection.
+export function internalSecret() {
+  return process.env.ADMIN_SESSION_SECRET || 'dev-insecure-secret-change-me';
+}
+
+// Absolute base URL for self-calls. Prefers Vercel's deployment URL, falls
+// back to the incoming request's origin (covers local dev).
+export function baseUrlFrom(request) {
+  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
+  try {
+    return new URL(request.url).origin;
+  } catch {
+    return '';
+  }
+}
+
+// Trigger the next link in the chain. process-next returns 202 immediately
+// (it does its work in the background), so this fetch resolves quickly.
+export async function triggerProcessNext(baseUrl, logId) {
+  await fetch(`${baseUrl}/api/popups/${logId}/process-next`, {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      'x-internal-secret': internalSecret(),
+    },
+  });
 }
