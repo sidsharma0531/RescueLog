@@ -165,25 +165,37 @@ export function internalSecret() {
   return process.env.ADMIN_SESSION_SECRET || 'dev-insecure-secret-change-me';
 }
 
-// Absolute base URL for self-calls. Prefers Vercel's deployment URL, falls
-// back to the incoming request's origin (covers local dev).
+// Absolute base URL for self-calls. Prefer the origin the request came in on:
+// it's a public, reachable URL (the caller just used it) and is not behind
+// Vercel Deployment Protection, unlike the deployment-specific VERCEL_URL —
+// self-calls to a protected VERCEL_URL silently get a 401 auth page instead
+// of reaching the function. Fall back to VERCEL_URL only if request.url can't
+// be parsed.
 export function baseUrlFrom(request) {
-  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
   try {
     return new URL(request.url).origin;
   } catch {
-    return '';
+    return process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : '';
   }
 }
 
 // Trigger the next link in the chain. process-next returns 202 immediately
 // (it does its work in the background), so this fetch resolves quickly.
 export async function triggerProcessNext(baseUrl, logId) {
-  await fetch(`${baseUrl}/api/popups/${logId}/process-next`, {
+  const url = `${baseUrl}/api/popups/${logId}/process-next`;
+  console.log(`[chain] triggering process-next: ${url}`);
+  const res = await fetch(url, {
     method: 'POST',
     headers: {
       'content-type': 'application/json',
       'x-internal-secret': internalSecret(),
     },
   });
+  console.log(`[chain] process-next responded ${res.status} for log ${logId}`);
+  // fetch only rejects on network errors, NOT on HTTP error statuses, so a
+  // 401 (Deployment Protection) or 403 (secret check) would otherwise pass
+  // silently. Throw so the caller logs it.
+  if (!res.ok) {
+    throw new Error(`process-next returned HTTP ${res.status}`);
+  }
 }

@@ -37,7 +37,14 @@ export async function POST(request, { params }) {
 
   // Only internal callers (the upload route and the chain itself) may
   // trigger analysis.
-  if (request.headers.get('x-internal-secret') !== internalSecret()) {
+  const secretOk =
+    request.headers.get('x-internal-secret') === internalSecret();
+  console.log(
+    `[process-next] called for log ${logId}; secret check ${
+      secretOk ? 'PASSED' : 'FAILED'
+    }`,
+  );
+  if (!secretOk) {
     return NextResponse.json({ error: 'Forbidden.' }, { status: 403 });
   }
 
@@ -47,6 +54,9 @@ export async function POST(request, { params }) {
     (async () => {
       try {
         const { done } = await processPopupBatch(logId);
+        console.log(
+          `[process-next] batch complete for log ${logId}; done=${done}`,
+        );
         if (!done) {
           // More photos remain — hand off to the next invocation. We await
           // the trigger (process-next returns 202 immediately) only to make
@@ -54,6 +64,10 @@ export async function POST(request, { params }) {
           await triggerProcessNext(baseUrl, logId);
         }
       } catch (e) {
+        console.error(
+          `[process-next] error for log ${logId}:`,
+          e?.message || e,
+        );
         await markLogFailed(logId);
       }
     })(),

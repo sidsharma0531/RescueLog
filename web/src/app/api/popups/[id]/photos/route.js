@@ -81,11 +81,22 @@ export async function POST(request, { params }) {
 
     // 6. Kick off the analysis chain (process-next returns 202 immediately
     //    and analyzes in the background), then return right away.
+    const base = baseUrlFrom(request);
+    console.log(
+      `[photos] log ${logId}: inserted ${photos.length} photo(s); ` +
+        `kicking off analysis chain via ${base}`,
+    );
     try {
-      await triggerProcessNext(baseUrlFrom(request), logId);
-    } catch {
-      // If the kickoff didn't go through, the log stays 'processing' and can
-      // be re-triggered by uploading again; don't fail the user's request.
+      await triggerProcessNext(base, logId);
+      console.log(`[photos] log ${logId}: analysis chain kicked off`);
+    } catch (e) {
+      // Log loudly — don't fail the user's upload, but make sure a failed
+      // kickoff is visible instead of dying silently. The log stays
+      // 'processing' and can be re-triggered by uploading again.
+      console.error(
+        `[photos] log ${logId}: FAILED to kick off analysis chain:`,
+        e?.message || e,
+      );
     }
 
     return NextResponse.json(
