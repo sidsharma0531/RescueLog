@@ -34,26 +34,26 @@ Analyze the photo and return a single JSON object. Use these exact category stri
 - "shelf_stable" — canned goods, pasta, rice, cereal, dry goods, snacks
 - "other" — anything not fitting above
 
-CRITICAL — ACCOUNT FOR HIDDEN AND OBSCURED FOOD:
-Real pop-up tables hold more food than is directly visible. A camera sees the top and front layer; it misses what is stacked behind, packed below, or sealed inside boxes. Your total MUST reflect the full likely amount, not just the visible surface. Specifically:
-- When items are stacked or in multiple layers, estimate the FULL stack, not just the visible top layer. Boxes and crates are typically filled, not single-layer.
-- When you see sealed or closed boxes/crates, assume they contain food consistent with the surrounding category and ESTIMATE their contents (do not exclude them). A standard filled produce/banana box holds ~30-40 lbs; a filled case of canned goods ~25-35 lbs; a full bakery tray ~8-15 lbs.
-- When items extend beyond the frame or are partially cut off, estimate the likely full quantity present.
-- When bags or containers obscure their contents, estimate based on typical fill.
-- Account for the well-documented fact that visual estimates of dense produce (potatoes, citrus, apples, root vegetables) tend to UNDERESTIMATE actual weight — these are heavier than they appear. Calibrate upward for dense items.
+ACCOUNT FOR HIDDEN FOOD — BUT DO NOT ASSUME MAXIMUM FILL:
+A camera sees mainly the top and front layer and misses some food stacked behind, packed below, or sealed in boxes. Include a reasonable allowance for that hidden food — but only where it is clearly implied, and never assume containers are packed to capacity unless they obviously are. The goal is the realistic true total a careful in-person count would reach, not the maximum conceivable. Specifically:
+- When items are clearly stacked in multiple layers, estimate the visible stack. Do not invent depth you cannot see — if only a single layer is visible with no clear sign of more beneath, estimate roughly what is visible.
+- When you see sealed or closed boxes/crates, estimate their contents, but assume a typical PARTIAL fill (about half to two-thirds) unless the box clearly looks full. Use the lower end of the reference ranges when fill is uncertain.
+- When items extend beyond the frame, estimate only the portion reasonably implied, not an unbounded amount.
+- When bags or containers obscure their contents, estimate a typical fill, not a maximal one.
+- Dense produce (potatoes, citrus, apples, root vegetables) is modestly heavier than it appears; apply a small, realistic upward adjustment — do not maximize.
 
-WEIGHT REFERENCE TABLE (anchor estimates to these, pick a SINGLE point estimate, not a range):
+WEIGHT REFERENCE TABLE (realistic averages; pick a SINGLE point estimate, not a range; use the lower end when items are obscured or fill is uncertain):
 - Gallon of milk: 8.6 lbs | dozen eggs: 1.5 lbs | loaf of bread: 1.5 lbs
-- Standard grocery bag of mixed produce: 7 lbs
-- Filled banana/produce box, light items (greens, berries): 20 lbs
-- Filled banana/produce box, dense items (citrus, apples, potatoes, onions): 35 lbs
-- Case of canned goods: 30 lbs | flat of bottled beverages: 25 lbs
-- Full bakery tray/rack of bread or pastries: 12 lbs
+- Standard grocery bag of mixed produce: 6 lbs
+- Filled banana/produce box, light items (greens, berries): 15 lbs
+- Filled banana/produce box, dense items (citrus, apples, potatoes, onions): 26 lbs
+- Case of canned goods: 22 lbs | flat of bottled beverages: 18 lbs
+- Full bakery tray/rack of bread or pastries: 9 lbs
 - Clamshell of berries/cut fruit: 1 lb | bag of salad greens: 0.7 lbs
-- Tray of packaged meat: 6 lbs each | prepared meal container: 1.2 lbs each
+- Tray of packaged meat: 5 lbs each | prepared meal container: 1 lb each
 
 ESTIMATION RULES:
-- Produce the most realistic COMPLETE estimate — reflecting all food likely present including hidden/stacked/sealed portions. Do not deliberately underestimate; aim for the true total.
+- Aim for the realistic true total a careful in-person hand-count would reach — including clearly-present hidden/stacked/sealed food, but WITHOUT inflating. Do not deliberately underestimate, and do not pad toward the maximum.
 - Pick a single point estimate per category, not a range, for consistency.
 - Round all weights to the nearest whole number.
 
