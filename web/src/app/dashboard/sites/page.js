@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   LineChart,
   Line,
@@ -18,30 +18,27 @@ import CategoryChart from '@/components/CategoryChart';
 import PopupsTable from '@/components/PopupsTable';
 import { LoadingBlock, ErrorBlock } from '@/components/Loading';
 
+// A log's effective site name: its linked location, else the manual name.
+function siteNameOf(p) {
+  return p.location?.name || p.location_name_manual || 'Unknown site';
+}
+
 export default function SitesPage() {
-  const [locations, setLocations] = useState([]);
-  const [siteId, setSiteId] = useState('');
-  const [popups, setPopups] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [allPopups, setAllPopups] = useState([]);
+  const [siteName, setSiteName] = useState('');
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  useEffect(() => {
-    apiGet('/api/locations')
-      .then((d) => {
-        const locs = d.locations || [];
-        setLocations(locs);
-        if (locs.length) setSiteId(locs[0].id);
-      })
-      .catch((e) => setError(e.message));
-  }, []);
-
-  const load = useCallback(async (id) => {
-    if (!id) return;
+  // Build the site list from the LOGS, not the locations table — so only
+  // sites that actually have a pop-up appear, and duplicate location records
+  // (or manual names) with the same site name collapse into one entry whose
+  // logs are aggregated together.
+  const load = useCallback(async () => {
     setLoading(true);
     setError('');
     try {
-      const d = await apiGet(`/api/popups?location_id=${id}&limit=500`);
-      setPopups(d.popups || []);
+      const d = await apiGet('/api/popups?limit=500');
+      setAllPopups(d.popups || []);
     } catch (e) {
       setError(e.message);
     } finally {
@@ -50,8 +47,28 @@ export default function SitesPage() {
   }, []);
 
   useEffect(() => {
-    if (siteId) load(siteId);
-  }, [siteId, load]);
+    load();
+  }, [load]);
+
+  // Distinct site names that have >=1 logged pop-up, alphabetical.
+  const sites = useMemo(
+    () =>
+      [...new Set(allPopups.map(siteNameOf))].sort((a, b) =>
+        a.localeCompare(b),
+      ),
+    [allPopups],
+  );
+
+  // Pick a default once sites load, and repair if the selection disappears.
+  useEffect(() => {
+    if (sites.length && !sites.includes(siteName)) setSiteName(sites[0]);
+  }, [sites, siteName]);
+
+  // All logs for the selected site (across any duplicate location records).
+  const popups = useMemo(
+    () => allPopups.filter((p) => siteNameOf(p) === siteName),
+    [allPopups, siteName],
+  );
 
   // Aggregate the category mix across this site's pop-ups.
   const catTotals = Object.fromEntries(CATEGORY_KEYS.map((k) => [k, 0]));
@@ -96,14 +113,14 @@ export default function SitesPage() {
             Site
           </span>
           <select
-            value={siteId}
-            onChange={(e) => setSiteId(e.target.value)}
+            value={siteName}
+            onChange={(e) => setSiteName(e.target.value)}
             className="max-w-sm rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-rescue-green focus:ring-1 focus:ring-rescue-green"
           >
-            {locations.length === 0 && <option value="">No sites yet</option>}
-            {locations.map((l) => (
-              <option key={l.id} value={l.id}>
-                {l.name}
+            {sites.length === 0 && <option value="">No sites with logs yet</option>}
+            {sites.map((name) => (
+              <option key={name} value={name}>
+                {name}
               </option>
             ))}
           </select>
@@ -113,11 +130,11 @@ export default function SitesPage() {
       {loading ? (
         <LoadingBlock />
       ) : error ? (
-        <ErrorBlock message={error} onRetry={() => load(siteId)} />
-      ) : !siteId ? (
+        <ErrorBlock message={error} onRetry={load} />
+      ) : sites.length === 0 ? (
         <Card>
           <p className="text-sm text-gray-400">
-            Add a location to see site analytics.
+            No sites with logged pop-ups yet.
           </p>
         </Card>
       ) : popups.length === 0 ? (
