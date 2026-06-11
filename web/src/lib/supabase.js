@@ -35,7 +35,20 @@ if (!isValidHttpUrl(supabaseUrl) || !serviceRoleKey) {
 export const supabaseAdmin = createClient(
   supabaseUrl || 'http://localhost',
   serviceRoleKey || 'missing-key',
-  { auth: { persistSession: false, autoRefreshToken: false } },
+  {
+    auth: { persistSession: false, autoRefreshToken: false },
+    global: {
+      // CRITICAL: bypass Next.js's fetch Data Cache. supabase-js sends
+      // PostgREST SELECTs as GET requests, which Next.js 14 caches by
+      // default — independent of the Vercel CDN cache and not fully
+      // disabled by `dynamic = 'force-dynamic'`. Without this, GET routes
+      // like /api/drivers can serve stale rows (e.g. drivers that were
+      // already deleted) while POST routes like /api/auth/login read live
+      // data. Forcing no-store makes every query hit the database.
+      fetch: (input, init = {}) =>
+        fetch(input, { ...init, cache: 'no-store' }),
+    },
+  },
 );
 
 export const PHOTO_BUCKET = 'popup-photos';
