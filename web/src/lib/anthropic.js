@@ -118,6 +118,10 @@ async function runAnalysis(imageSource) {
   const response = await client.messages.create({
     model: MODEL,
     max_tokens: 3000,
+    // Deterministic sampling to minimize run-to-run variance on the same
+    // photo. (Vision estimation is never perfectly reproducible, but
+    // temperature 0 removes the largest source of variance.)
+    temperature: 0,
     // System prompt is identical on every photo — cache it. (Caching only
     // kicks in above the model's minimum prefix length; harmless otherwise.)
     system: [
