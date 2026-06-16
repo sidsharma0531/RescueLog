@@ -4,7 +4,7 @@ const bcrypt = require('bcryptjs');
 const { supabase } = require('./_client');
 
 // Launch-partner org id (seeded by supabase/schema.sql). Existing seeded
-// drivers belong to Second Servings Houston.
+// drivers belong to that organization.
 const ORG_ID = '00000000-0000-0000-0000-000000000001';
 
 const DRIVERS = [
@@ -14,7 +14,7 @@ const DRIVERS = [
 ];
 
 const ADMINS = [
-  { name: 'Max Curry', email: 'max@secondservings.org' },
+  { name: 'Max Curry', email: 'mcurry@secondservingshouston.org' },
   { name: 'Lisa', email: 'lisa@secondservings.org' },
   { name: 'Barbara', email: 'barbara@secondservings.org' },
 ];

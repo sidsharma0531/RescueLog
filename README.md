@@ -116,7 +116,7 @@ no App Store submission needed. For production, use
 | Driver | Greg                           | PIN `1234`  |
 | Driver | Maria                          | PIN `2345`  |
 | Driver | Devon                          | PIN `3456`  |
-| Admin  | `max@secondservings.org`       | `rescue123` |
+| Admin  | `mcurry@secondservingshouston.org` | `rescue123` |
 | Admin  | `lisa@secondservings.org`      | `rescue123` |
 | Admin  | `barbara@secondservings.org`   | `rescue123` |
 
@@ -136,4 +136,4 @@ The vision prompt and client live in
 
 ---
 
-Built for Second Servings Houston.
+Built for food rescue organizations.

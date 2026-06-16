@@ -53,7 +53,7 @@ export default function LoginPage() {
             onChange={(e) => setEmail(e.target.value)}
             required
             className="mb-4 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-rescue-green focus:ring-1 focus:ring-rescue-green"
-            placeholder="max@secondservings.org"
+            placeholder="you@organization.org"
           />
 
           <label className="mb-1 block text-sm font-medium text-gray-700">
@@ -83,10 +83,6 @@ export default function LoginPage() {
             {loading ? 'Signing in…' : 'Sign in'}
           </button>
         </form>
-
-        <p className="mt-6 text-center text-xs text-gray-400">
-          Built for Second Servings Houston
-        </p>
       </div>
     </main>
   );

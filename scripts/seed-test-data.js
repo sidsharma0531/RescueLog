@@ -7,7 +7,7 @@
 const { supabase } = require('./_client');
 
 // Launch-partner org id (seeded by supabase/schema.sql). All demo logs
-// belong to Second Servings Houston.
+// belong to that organization.
 const ORG_ID = '00000000-0000-0000-0000-000000000001';
 
 // Plausible Houston-area community sites (coordinates are approximate).

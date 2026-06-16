@@ -4,7 +4,7 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        // Second Servings brand palette
+        // Brand palette
         rescue: {
           green: '#2D7D46',
           'green-dark': '#1F5A32',

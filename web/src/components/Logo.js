@@ -1,4 +1,4 @@
-// RescueLog mark — a leaf on the Second Servings green.
+// RescueLog mark — a leaf on the brand green.
 export default function Logo({ size = 40, className = '' }) {
   return (
     <span

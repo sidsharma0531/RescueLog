@@ -2,7 +2,7 @@
   "name": "rescuelog-web",
   "version": "1.0.0",
   "private": true,
-  "description": "RescueLog — Next.js API + admin dashboard for Second Servings Houston",
+  "description": "RescueLog — Next.js API + admin dashboard for food rescue organizations",
   "scripts": {
     "dev": "next dev",
     "build": "next build",

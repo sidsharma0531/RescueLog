@@ -124,7 +124,7 @@ export default function PrivacyPolicyPage() {
           <Section title="Contact">
             <p>
               Questions about this policy can be directed to the operating
-              organization, Second Servings Houston.
+              organization.
             </p>
           </Section>
         </div>

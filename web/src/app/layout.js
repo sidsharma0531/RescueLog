@@ -2,7 +2,7 @@ import './globals.css';
 
 export const metadata = {
   title: 'RescueLog',
-  description: 'AI-powered food rescue tracking — built for Second Servings Houston',
+  description: 'AI-powered food rescue tracking',
 };
 
 export default function RootLayout({ children }) {
