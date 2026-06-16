@@ -2,10 +2,10 @@
 
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import { categoryLabel, categoryColor } from '@/lib/categories';
-import { formatLbs } from '@/lib/format';
+import { formatLbs, formatUsd } from '@/lib/format';
 
 // Renders an aggregated category breakdown. `data` is an array of
-// { name, weight_lbs, percentage } (the ai_category_summary.categories shape).
+// { name, weight_lbs, value_usd, percentage } (ai_category_summary.categories).
 // variant: 'donut' (overview wow chart) | 'bars' (detail breakdown).
 export default function CategoryChart({ data, variant = 'donut' }) {
   const rows = (data || [])
@@ -15,6 +15,7 @@ export default function CategoryChart({ data, variant = 'donut' }) {
       label: categoryLabel(d.name),
       color: categoryColor(d.name),
       weight: d.weight_lbs || 0,
+      value: d.value_usd || 0,
       pct: d.percentage || 0,
     }))
     .sort((a, b) => b.weight - a.weight);
@@ -80,6 +81,12 @@ function BarList({ rows }) {
             <span className="text-gray-500">
               {formatLbs(r.weight)}{' '}
               <span className="text-gray-400">· {r.pct}%</span>
+              {r.value > 0 && (
+                <span className="font-medium text-rescue-green">
+                  {' '}
+                  · {formatUsd(r.value)}
+                </span>
+              )}
             </span>
           </div>
           <div className="h-2.5 w-full overflow-hidden rounded-full bg-gray-100">
@@ -106,6 +113,9 @@ function ChartTooltip({ active, payload }) {
       <p className="text-gray-500">
         {formatLbs(r.weight)} · {r.pct}%
       </p>
+      {r.value > 0 && (
+        <p className="font-medium text-rescue-green">{formatUsd(r.value)}</p>
+      )}
     </div>
   );
 }

@@ -50,8 +50,9 @@ export default function ExportPage() {
     'Location',
     'Driver',
     'Total AI Weight',
+    'Total Est. Value',
     'Driver Weight',
-    ...CATEGORIES.flatMap((c) => [`${c.label} lbs`, `${c.label} %`]),
+    ...CATEGORIES.flatMap((c) => [`${c.label} lbs`, `${c.label} %`, `${c.label} $`]),
     'Photo Count',
     'Confidence',
     'Status',
@@ -83,7 +84,8 @@ export default function ExportPage() {
                 : `${count} pop-up log${count === 1 ? '' : 's'} match the current filters.`}
             </p>
             <p className="mt-0.5 text-xs text-gray-400">
-              One row per pop-up, with per-category pounds and percentages.
+              One row per pop-up, with per-category pounds, percentages, and
+              estimated retail value.
             </p>
           </div>
           <ExportButton href={exportHref} disabled={count === 0} />

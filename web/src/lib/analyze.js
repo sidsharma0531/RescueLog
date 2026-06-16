@@ -1,6 +1,8 @@
 import { supabaseAdmin } from './supabase';
 import { analyzePopupPhotoFromUrl } from './anthropic';
 import { aggregatePhotoAnalyses } from './aggregate';
+import { applyPriceReferences } from './pricing';
+import { orgIdForLog } from './org';
 
 // SERVER-ONLY. AI pipeline for a pop-up log's photos, processed in small
 // sequential batches. There are NO server-to-server self-calls — those get
@@ -60,10 +62,25 @@ async function countPending(logId) {
   return count || 0;
 }
 
+// Load an organization's price references for the value override. Returns []
+// when none are set (the common case), making the override a no-op.
+async function fetchOrgPriceReferences(organizationId) {
+  const { data } = await supabaseAdmin
+    .from('price_references')
+    .select('item_name, price_usd, unit')
+    .eq('organization_id', orgIdForLog(organizationId));
+  return data || [];
+}
+
 // Re-aggregate the log's completed photos into its summary. When `finalize`
 // is true, also write the terminal status: 'failed' only if nothing
 // completed, 'partial' if some failed, else 'complete'.
-async function refreshLogSummary(logId, driverWeightEstimate, finalize) {
+async function refreshLogSummary(
+  logId,
+  driverWeightEstimate,
+  organizationId,
+  finalize,
+) {
   const { data: allPhotos } = await supabaseAdmin
     .from('popup_photos')
     .select('ai_analysis, processing_status')
@@ -75,14 +92,18 @@ async function refreshLogSummary(logId, driverWeightEstimate, finalize) {
   );
   const failed = photos.filter((p) => p.processing_status === 'failed').length;
 
+  // Apply the org's pinned prices to each photo's analysis before aggregating,
+  // so the rolled-up value reflects any overrides.
+  const priceRefs = await fetchOrgPriceReferences(organizationId);
   const summary = aggregatePhotoAnalyses(
-    completed.map((p) => p.ai_analysis),
+    completed.map((p) => applyPriceReferences(p.ai_analysis, priceRefs)),
     driverWeightEstimate,
   );
 
   const update = {
     ai_category_summary: summary,
     ai_total_weight: summary.total_weight_lbs,
+    ai_total_value: summary.total_value_usd,
     photo_count: photos.length,
   };
 
@@ -102,7 +123,7 @@ async function refreshLogSummary(logId, driverWeightEstimate, finalize) {
 export async function processPopupBatch(logId) {
   const { data: log } = await supabaseAdmin
     .from('popup_logs')
-    .select('id, driver_weight_estimate')
+    .select('id, driver_weight_estimate, organization_id')
     .eq('id', logId)
     .maybeSingle();
   if (!log) return { remaining: 0, analyzed: 0 };
@@ -117,7 +138,12 @@ export async function processPopupBatch(logId) {
 
   // Nothing pending — make sure the summary + status are finalized.
   if (!batch || batch.length === 0) {
-    await refreshLogSummary(logId, log.driver_weight_estimate, true);
+    await refreshLogSummary(
+      logId,
+      log.driver_weight_estimate,
+      log.organization_id,
+      true,
+    );
     return { remaining: 0, analyzed: 0 };
   }
 
@@ -168,7 +194,12 @@ export async function processPopupBatch(logId) {
   );
 
   const remaining = await countPending(logId);
-  await refreshLogSummary(logId, log.driver_weight_estimate, remaining === 0);
+  await refreshLogSummary(
+    logId,
+    log.driver_weight_estimate,
+    log.organization_id,
+    remaining === 0,
+  );
   return { remaining, analyzed: batch.length };
 }
 

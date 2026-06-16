@@ -65,6 +65,7 @@ create table if not exists popup_logs (
   driver_weight_estimate numeric,
   manual_estimate_lbs    numeric,   -- admin-entered reference weight (dashboard)
   ai_total_weight        numeric,
+  ai_total_value         numeric,   -- estimated retail value (USD) of the rescue
   ai_category_summary    jsonb,
   status                 text default 'processing',  -- processing | complete | partial | failed
   photo_count            integer default 0,
@@ -72,6 +73,20 @@ create table if not exists popup_logs (
   logged_at              timestamptz default now(),
   processed_at           timestamptz,
   created_at             timestamptz default now()
+);
+
+-- PRICE REFERENCES: per-organization pinned retail prices for recurring items.
+-- The vision AI estimates a retail value for everything automatically; these
+-- let an org override that for items they receive repeatedly (e.g.
+-- "Antone's po-boy = $9 each"). A matching item's AI value is replaced with
+-- quantity * price_usd (per_unit) or weight_lbs * price_usd (per_lb).
+create table if not exists price_references (
+  id               uuid primary key default gen_random_uuid(),
+  organization_id  uuid references organizations(id),
+  item_name        text not null,
+  price_usd        numeric not null,
+  unit             text not null default 'per_unit',  -- per_unit | per_lb
+  created_at       timestamptz default now()
 );
 
 -- POPUP PHOTOS: one row per photo within a popup log.
@@ -97,6 +112,12 @@ create index if not exists idx_popup_logs_location_id     on popup_logs(location
 create index if not exists idx_popup_logs_status          on popup_logs(status);
 create index if not exists idx_popup_logs_organization_id on popup_logs(organization_id);
 create index if not exists idx_popup_photos_log_id        on popup_photos(popup_log_id);
+create index if not exists idx_price_references_org       on price_references(organization_id);
+
+-- ---- Migrations (safe on existing databases) -------------------
+-- ai_total_value was added after the first release; backfill the column on
+-- databases created before it existed.
+alter table popup_logs add column if not exists ai_total_value numeric;
 
 -- ---- Row Level Security ----------------------------------------
 -- All app traffic goes through the Next.js API using the service-role
@@ -108,6 +129,7 @@ alter table admin_users   enable row level security;
 alter table locations     enable row level security;
 alter table popup_logs    enable row level security;
 alter table popup_photos  enable row level security;
+alter table price_references enable row level security;
 
 -- ---- Storage bucket --------------------------------------------
 -- Public-read bucket so the dashboard can render photos by URL.
