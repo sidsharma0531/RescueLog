@@ -27,8 +27,8 @@ import { colors, radius } from '../theme';
 export default function CartCaptureScreen({ navigation }) {
   const [driver, setDriver] = useState(null);
   const [org, setOrg] = useState(null);
+  const [householdId, setHouseholdId] = useState('');
   const [scaleWeight, setScaleWeight] = useState('');
-  const [cartLabel, setCartLabel] = useState('');
   const [photos, setPhotos] = useState([]);
   const [notes, setNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -99,15 +99,17 @@ export default function CartCaptureScreen({ navigation }) {
     setSubmitting(true);
     setUploadProgress({ done: 0, total: photos.length });
     try {
-      const label = cartLabel.trim() || `${org?.name || 'Cart'} cart`;
+      const siteName = org?.name || 'Cart';
 
-      // Create the cart log — mode 'cart' + the scale weight (ground truth).
+      // Create the cart log — mode 'cart', the scale weight (ground truth), and
+      // the optional household id.
       const popup = await api.createPopup({
         driver_id: driver.id,
         organization_id: org?.id || null,
         mode: 'cart',
         scale_weight_lbs: weightNum,
-        location_name_manual: label,
+        household_id: householdId.trim() || null,
+        location_name_manual: siteName,
         notes: notes.trim() || null,
       });
 
@@ -121,7 +123,7 @@ export default function CartCaptureScreen({ navigation }) {
 
       navigation.replace('Confirm', {
         mode: 'cart',
-        locationName: label,
+        locationName: siteName,
         photoCount: photos.length,
       });
     } catch (e) {
@@ -160,6 +162,20 @@ export default function CartCaptureScreen({ navigation }) {
           contentContainerStyle={styles.scroll}
           keyboardShouldPersistTaps="handled"
         >
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Household ID</Text>
+            <TextInput
+              value={householdId}
+              onChangeText={setHouseholdId}
+              placeholder="e.g. 1042 (optional)"
+              placeholderTextColor={colors.grayLight}
+              style={styles.input}
+            />
+            <Text style={styles.hint}>
+              Who received this cart. Optional — helps you report per household.
+            </Text>
+          </View>
+
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Scale weight</Text>
             <TextInput
@@ -207,17 +223,6 @@ export default function CartCaptureScreen({ navigation }) {
               <Text style={styles.permissionMessage}>{permissionMessage}</Text>
             ) : null}
             <PhotoGrid photos={photos} onRemove={removePhoto} />
-          </View>
-
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>Cart label (optional)</Text>
-            <TextInput
-              value={cartLabel}
-              onChangeText={setCartLabel}
-              placeholder="e.g. Produce cart #3"
-              placeholderTextColor={colors.grayLight}
-              style={styles.input}
-            />
           </View>
 
           <View style={styles.card}>

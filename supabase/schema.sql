@@ -69,6 +69,7 @@ create table if not exists popup_logs (
   manual_estimate_lbs    numeric,   -- admin-entered reference weight (dashboard)
   mode                   text default 'popup',  -- popup | cart
   scale_weight_lbs       numeric,   -- cart mode: ground-truth weight from the scale
+  household_id           text,      -- cart mode: recipient/household identifier
   ai_total_weight        numeric,
   ai_category_summary    jsonb,
   status                 text default 'processing',  -- processing | complete | partial | failed
@@ -111,6 +112,7 @@ create index if not exists idx_admin_users_org            on admin_users(organiz
 alter table organizations add column if not exists capture_mode text default 'popup';
 alter table popup_logs    add column if not exists mode text default 'popup';
 alter table popup_logs    add column if not exists scale_weight_lbs numeric;
+alter table popup_logs    add column if not exists household_id text;
 -- Per-org admin scoping (added after Cart Mode): each admin sees only their org.
 alter table admin_users   add column if not exists organization_id uuid references organizations(id);
 

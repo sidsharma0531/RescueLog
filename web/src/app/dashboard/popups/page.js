@@ -6,8 +6,10 @@ import { daysAgoISO, todayISO } from '@/lib/dates';
 import FilterBar from '@/components/FilterBar';
 import PopupsTable from '@/components/PopupsTable';
 import { LoadingBlock, ErrorBlock } from '@/components/Loading';
+import { useTerms } from '@/components/OrgMode';
 
 export default function PopupsListPage() {
+  const terms = useTerms();
   const [filters, setFilters] = useState({
     from: daysAgoISO(30),
     to: todayISO(),
@@ -55,7 +57,7 @@ export default function PopupsListPage() {
   return (
     <div className="space-y-5">
       <div>
-        <h1 className="text-xl font-bold text-rescue-ink">Pop-Up Logs</h1>
+        <h1 className="text-xl font-bold text-rescue-ink">{terms.logTitlePlural}</h1>
         <p className="text-sm text-gray-500">
           {loading ? 'Loading…' : `${popups.length} log${popups.length === 1 ? '' : 's'} in range`}
         </p>

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import StatusBadge from './StatusBadge';
 import { categoryLabel } from '@/lib/categories';
 import { formatDate, formatLbs } from '@/lib/format';
+import { useTerms } from './OrgMode';
 
 function locationName(p) {
   return p.location?.name || p.location_name_manual || 'Unknown site';
@@ -24,13 +25,14 @@ const SORTERS = {
 
 export default function PopupsTable({ popups }) {
   const router = useRouter();
+  const terms = useTerms();
   const [sortKey, setSortKey] = useState('date');
   const [sortDir, setSortDir] = useState('desc');
 
   if (!popups || popups.length === 0) {
     return (
       <p className="py-10 text-center text-sm text-gray-400">
-        No pop-up logs yet.
+        No {terms.logWord} logs yet.
       </p>
     );
   }

@@ -7,8 +7,10 @@ import { CATEGORIES } from '@/lib/categories';
 import FilterBar from '@/components/FilterBar';
 import Card from '@/components/Card';
 import ExportButton from '@/components/ExportButton';
+import { useTerms } from '@/components/OrgMode';
 
 export default function ExportPage() {
+  const terms = useTerms();
   const [filters, setFilters] = useState({
     from: daysAgoISO(30),
     to: todayISO(),
@@ -49,6 +51,7 @@ export default function ExportPage() {
     'Date',
     'Location',
     'Driver',
+    'Household ID',
     'Total AI Weight',
     'Driver Weight',
     ...CATEGORIES.flatMap((c) => [`${c.label} lbs`, `${c.label} %`]),
@@ -62,8 +65,8 @@ export default function ExportPage() {
       <div>
         <h1 className="text-xl font-bold text-rescue-ink">Export</h1>
         <p className="text-sm text-gray-500">
-          Download pop-up data as a CSV — built to paste into existing Excel
-          grant workbooks.
+          Download {terms.logWord} data as a CSV — built to paste into existing
+          Excel grant workbooks.
         </p>
       </div>
 
@@ -79,11 +82,12 @@ export default function ExportPage() {
           <div>
             <p className="text-sm text-gray-600">
               {count == null
-                ? 'Counting matching pop-ups…'
-                : `${count} pop-up log${count === 1 ? '' : 's'} match the current filters.`}
+                ? `Counting matching ${terms.logWordPlural}…`
+                : `${count} ${terms.logWord} log${count === 1 ? '' : 's'} match the current filters.`}
             </p>
             <p className="mt-0.5 text-xs text-gray-400">
-              One row per pop-up, with per-category pounds and percentages.
+              One row per {terms.logWord}, with per-category pounds and
+              percentages.
             </p>
           </div>
           <ExportButton href={exportHref} disabled={count === 0} />

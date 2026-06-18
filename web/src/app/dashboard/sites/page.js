@@ -17,6 +17,7 @@ import Card from '@/components/Card';
 import CategoryChart from '@/components/CategoryChart';
 import PopupsTable from '@/components/PopupsTable';
 import { LoadingBlock, ErrorBlock } from '@/components/Loading';
+import { useTerms } from '@/components/OrgMode';
 
 // A log's effective site name: its linked location, else the manual name.
 function siteNameOf(p) {
@@ -24,6 +25,7 @@ function siteNameOf(p) {
 }
 
 export default function SitesPage() {
+  const terms = useTerms();
   const [allPopups, setAllPopups] = useState([]);
   const [siteName, setSiteName] = useState('');
   const [loading, setLoading] = useState(true);
@@ -103,7 +105,7 @@ export default function SitesPage() {
       <div>
         <h1 className="text-xl font-bold text-rescue-ink">Site Analytics</h1>
         <p className="text-sm text-gray-500">
-          Pop-up rescue history for a single location
+          {terms.cart ? 'Cart' : 'Pop-up'} rescue history for a single location
         </p>
       </div>
 
@@ -134,27 +136,27 @@ export default function SitesPage() {
       ) : sites.length === 0 ? (
         <Card>
           <p className="text-sm text-gray-400">
-            No sites with logged pop-ups yet.
+            No sites with logged {terms.logWordPlural} yet.
           </p>
         </Card>
       ) : popups.length === 0 ? (
         <Card>
           <p className="text-sm text-gray-400">
-            No pop-up logs at this site yet.
+            No {terms.logWord} logs at this site yet.
           </p>
         </Card>
       ) : (
         <>
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
-            <MiniStat label="Pop-ups" value={formatNumber(popups.length)} />
+            <MiniStat label={terms.short} value={formatNumber(popups.length)} />
             <MiniStat
               label="Total rescued"
               value={formatLbs(Math.round(siteTotalWeight))}
             />
-            <MiniStat label="Avg per pop-up" value={formatLbs(avgWeight)} />
+            <MiniStat label={`Avg per ${terms.logWord}`} value={formatLbs(avgWeight)} />
           </div>
 
-          <Card title="Weight rescued per pop-up">
+          <Card title={`Weight rescued per ${terms.logWord}`}>
             <div className="h-64 w-full">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart
@@ -184,7 +186,7 @@ export default function SitesPage() {
             <CategoryChart data={categoryData} variant="donut" />
           </Card>
 
-          <Card title="All pop-up logs at this site">
+          <Card title={`All ${terms.logWord} logs at this site`}>
             <PopupsTable popups={popups} />
           </Card>
         </>

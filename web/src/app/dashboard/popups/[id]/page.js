@@ -10,10 +10,12 @@ import CategoryChart from '@/components/CategoryChart';
 import PhotoGallery from '@/components/PhotoGallery';
 import StatusBadge from '@/components/StatusBadge';
 import { LoadingBlock, ErrorBlock } from '@/components/Loading';
+import { useTerms } from '@/components/OrgMode';
 
 export default function PopupDetailPage() {
   const { id } = useParams();
   const router = useRouter();
+  const terms = useTerms();
   const [popup, setPopup] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -194,9 +196,9 @@ export default function PopupDetailPage() {
     };
   }, [popup?.status, id]);
 
-  if (loading) return <LoadingBlock label="Loading pop-up…" />;
+  if (loading) return <LoadingBlock label={`Loading ${terms.logWord}…`} />;
   if (error) return <ErrorBlock message={error} onRetry={load} />;
-  if (!popup) return <ErrorBlock message="Pop-up not found." />;
+  if (!popup) return <ErrorBlock message={`${terms.logTitle} not found.`} />;
 
   // Prefer a manually-saved name so an edit is reflected even when the log
   // is also linked to a GPS location record.
@@ -231,7 +233,7 @@ export default function PopupDetailPage() {
         href="/dashboard/popups"
         className="text-sm font-medium text-rescue-green hover:underline"
       >
-        ← All pop-up logs
+        ← All {terms.logWord} logs
       </a>
 
       <div>
@@ -355,6 +357,11 @@ export default function PopupDetailPage() {
             </span>
           )}
           <span>· Logged by {popup.driver?.name || 'Unknown driver'}</span>
+          {popup.household_id && (
+            <span className="font-medium text-rescue-ink">
+              · Household ID {popup.household_id}
+            </span>
+          )}
         </div>
         {dateError && <p className="mt-1 text-sm text-red-600">{dateError}</p>}
       </div>

@@ -9,6 +9,7 @@
 alter table organizations add column if not exists capture_mode text default 'popup';
 alter table popup_logs    add column if not exists mode text default 'popup';
 alter table popup_logs    add column if not exists scale_weight_lbs numeric;
+alter table popup_logs    add column if not exists household_id text;
 alter table admin_users   add column if not exists organization_id uuid references organizations(id);
 
 -- 2. Second Mile org (Cart Mode) + demo driver -----------------

@@ -93,6 +93,12 @@ export async function POST(request) {
       insert.mode = 'cart';
       insert.scale_weight_lbs = numOrNull(body.scale_weight_lbs);
     }
+    // Household id (Second Mile per-household tracking). Only added to the
+    // insert when provided, so the pop-up path is untouched and a cart log
+    // without one still saves on databases that predate the column.
+    if (body.household_id != null && String(body.household_id).trim() !== '') {
+      insert.household_id = String(body.household_id).trim();
+    }
 
     const { data, error } = await supabaseAdmin
       .from('popup_logs')

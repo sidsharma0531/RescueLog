@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { apiPost } from '@/lib/api-client';
 import Logo from './Logo';
+import { useTerms } from './OrgMode';
 
 const NAV = [
   { href: '/dashboard', label: 'Overview' },
@@ -15,6 +16,14 @@ const NAV = [
 export default function Sidebar({ adminName }) {
   const pathname = usePathname();
   const router = useRouter();
+  const terms = useTerms();
+
+  // Cart-mode orgs see "Cart Logs" in place of "Pop-Up Logs".
+  const navItems = NAV.map((item) =>
+    item.href === '/dashboard/popups'
+      ? { ...item, label: terms.logTitlePlural }
+      : item,
+  );
 
   const isActive = (href) =>
     href === '/dashboard' ? pathname === href : pathname.startsWith(href);
@@ -38,7 +47,7 @@ export default function Sidebar({ adminName }) {
           <span className="text-lg font-bold text-rescue-ink">RescueLog</span>
         </div>
         <nav className="flex-1 space-y-1 px-3">
-          {NAV.map((item) => (
+          {navItems.map((item) => (
             <Link
               key={item.href}
               href={item.href}
@@ -82,7 +91,7 @@ export default function Sidebar({ adminName }) {
           </button>
         </div>
         <nav className="thin-scroll flex gap-1 overflow-x-auto px-3 pb-2">
-          {NAV.map((item) => (
+          {navItems.map((item) => (
             <Link
               key={item.href}
               href={item.href}

@@ -40,6 +40,17 @@ export async function POST(request) {
       );
     }
 
+    // Resolve the org's capture mode so the dashboard can show pop-up vs cart
+    // terminology. select('*') keeps this resilient if capture_mode is absent.
+    if (admin.organization_id) {
+      const { data: org } = await supabaseAdmin
+        .from('organizations')
+        .select('*')
+        .eq('id', admin.organization_id)
+        .maybeSingle();
+      admin.capture_mode = org?.capture_mode === 'cart' ? 'cart' : 'popup';
+    }
+
     const res = NextResponse.json({
       success: true,
       admin: { id: admin.id, name: admin.name, email: admin.email },

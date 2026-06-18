@@ -18,6 +18,8 @@ export function createSessionToken(admin) {
       // The org this admin is scoped to. Null/absent for legacy admins → the
       // dashboard falls back to showing all orgs (pre-scoping behavior).
       organization_id: admin.organization_id ?? null,
+      // The org's capture mode, for pop-up vs cart dashboard terminology.
+      capture_mode: admin.capture_mode || 'popup',
     }),
   ).toString('base64url');
   const sig = crypto.createHmac('sha256', SECRET).update(payload).digest('hex');
