@@ -57,27 +57,39 @@ export async function POST(request) {
     const manualName = body.location_name_manual
       ? String(body.location_name_manual).trim()
       : '';
-    if (!body.location_id && !manualName) {
+    const isCart = body.mode === 'cart';
+    // Cart logs aren't tied to a pop-up site, so they don't require a location.
+    if (!isCart && !body.location_id && !manualName) {
       return NextResponse.json(
         { error: 'A location (location_id or location_name_manual) is required.' },
         { status: 400 },
       );
     }
 
+    const insert = {
+      driver_id: body.driver_id,
+      organization_id: body.organization_id || null,
+      location_id: body.location_id || null,
+      location_name_manual: manualName || null,
+      latitude: numOrNull(body.latitude),
+      longitude: numOrNull(body.longitude),
+      driver_weight_estimate: numOrNull(body.driver_weight_estimate),
+      notes: body.notes ? String(body.notes) : null,
+      status: 'processing',
+      photo_count: 0,
+    };
+    // Cart Mode (Second Mile): record the capture mode + the scale weight, which
+    // is the cart's ground-truth total. Only set for cart logs so the pop-up
+    // path is byte-for-byte unchanged — and so it still works on databases
+    // where the Cart Mode columns haven't been migrated in yet.
+    if (isCart) {
+      insert.mode = 'cart';
+      insert.scale_weight_lbs = numOrNull(body.scale_weight_lbs);
+    }
+
     const { data, error } = await supabaseAdmin
       .from('popup_logs')
-      .insert({
-        driver_id: body.driver_id,
-        organization_id: body.organization_id || null,
-        location_id: body.location_id || null,
-        location_name_manual: manualName || null,
-        latitude: numOrNull(body.latitude),
-        longitude: numOrNull(body.longitude),
-        driver_weight_estimate: numOrNull(body.driver_weight_estimate),
-        notes: body.notes ? String(body.notes) : null,
-        status: 'processing',
-        photo_count: 0,
-      })
+      .insert(insert)
       .select('id, status')
       .single();
     if (error) throw error;

@@ -11,7 +11,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import * as api from '../services/api';
-import { getDriver, clearDriver } from '../services/storage';
+import { getDriver, getOrg, clearDriver } from '../services/storage';
 import { colors, radius } from '../theme';
 
 const STATUS_COLORS = {
@@ -33,17 +33,19 @@ function formatDate(ts) {
 
 export default function HomeScreen({ navigation }) {
   const [driver, setDriver] = useState(null);
+  const [org, setOrg] = useState(null);
   const [recent, setRecent] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
   const load = useCallback(async () => {
-    const d = await getDriver();
+    const [d, o] = await Promise.all([getDriver(), getOrg()]);
     if (!d) {
       navigation.replace('Login');
       return;
     }
     setDriver(d);
+    setOrg(o);
     try {
       const res = await api.getRecentPopups(d.id, 5);
       setRecent(res.popups || []);
@@ -64,6 +66,10 @@ export default function HomeScreen({ navigation }) {
     clearDriver().then(() => navigation.replace('Login'));
   }
 
+  // Second Mile and other cart orgs see the Cart Log flow; everyone else
+  // keeps the pop-up flow.
+  const isCart = org?.capture_mode === 'cart';
+
   return (
     <SafeAreaView style={styles.safe}>
       <ScrollView
@@ -82,7 +88,9 @@ export default function HomeScreen({ navigation }) {
         <View style={styles.headerRow}>
           <View style={styles.flex}>
             <Text style={styles.hi}>Hi, {driver?.name || 'there'}</Text>
-            <Text style={styles.sub}>Ready to log a pop-up?</Text>
+            <Text style={styles.sub}>
+              {isCart ? 'Ready to log a cart?' : 'Ready to log a pop-up?'}
+            </Text>
           </View>
           <TouchableOpacity onPress={handleLogout} hitSlop={hitSlop}>
             <Text style={styles.logout}>Log out</Text>
@@ -91,12 +99,16 @@ export default function HomeScreen({ navigation }) {
 
         <TouchableOpacity
           style={styles.bigButton}
-          onPress={() => navigation.navigate('Capture')}
+          onPress={() => navigation.navigate(isCart ? 'CartCapture' : 'Capture')}
           activeOpacity={0.85}
         >
-          <Text style={styles.bigButtonText}>New Pop-Up Log</Text>
+          <Text style={styles.bigButtonText}>
+            {isCart ? 'New Cart Log' : 'New Pop-Up Log'}
+          </Text>
           <Text style={styles.bigButtonSub}>
-            Snap photos of the food on the tables
+            {isCart
+              ? 'Weigh the cart, then snap a photo of it'
+              : 'Snap photos of the food on the tables'}
           </Text>
         </TouchableOpacity>
 
@@ -106,7 +118,9 @@ export default function HomeScreen({ navigation }) {
           <ActivityIndicator color={colors.green} style={styles.loading} />
         ) : recent.length === 0 ? (
           <Text style={styles.empty}>
-            No logs yet. Your submitted pop-ups will show up here.
+            {isCart
+              ? 'No carts logged yet. Your submitted carts will show up here.'
+              : 'No logs yet. Your submitted pop-ups will show up here.'}
           </Text>
         ) : (
           recent.map((p) => (

@@ -46,7 +46,11 @@ export default function OrgSelectScreen({ navigation }) {
 
   async function pickOrg(org) {
     setSubmitting(true);
-    await saveOrg({ id: org.id, name: org.name });
+    await saveOrg({
+      id: org.id,
+      name: org.name,
+      capture_mode: org.capture_mode === 'cart' ? 'cart' : 'popup',
+    });
     setPickerOpen(false);
     navigation.replace('Login');
   }

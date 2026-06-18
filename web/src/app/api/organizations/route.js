@@ -7,13 +7,21 @@ export const dynamic = 'force-dynamic';
 // Used by the mobile org-select dropdown.
 export async function GET() {
   try {
+    // select('*') (not an explicit capture_mode column) so this keeps working
+    // on databases where the Cart Mode migration hasn't been applied yet —
+    // capture_mode simply defaults to 'popup' until the column exists.
     const { data, error } = await supabaseAdmin
       .from('organizations')
-      .select('id, name')
+      .select('*')
       .eq('status', 'approved')
       .order('name');
     if (error) throw error;
-    return NextResponse.json({ organizations: data || [] });
+    const organizations = (data || []).map((o) => ({
+      id: o.id,
+      name: o.name,
+      capture_mode: o.capture_mode === 'cart' ? 'cart' : 'popup',
+    }));
+    return NextResponse.json({ organizations });
   } catch (e) {
     return NextResponse.json(
       { error: e.message || 'Could not load organizations.' },

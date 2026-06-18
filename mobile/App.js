@@ -9,6 +9,7 @@ import JoinOrgScreen from './src/screens/JoinOrgScreen';
 import LoginScreen from './src/screens/LoginScreen';
 import HomeScreen from './src/screens/HomeScreen';
 import CaptureScreen from './src/screens/CaptureScreen';
+import CartCaptureScreen from './src/screens/CartCaptureScreen';
 import ConfirmScreen from './src/screens/ConfirmScreen';
 
 const Stack = createNativeStackNavigator();
@@ -28,6 +29,7 @@ export default function App() {
           <Stack.Screen name="Login" component={LoginScreen} />
           <Stack.Screen name="Home" component={HomeScreen} />
           <Stack.Screen name="Capture" component={CaptureScreen} />
+          <Stack.Screen name="CartCapture" component={CartCaptureScreen} />
           <Stack.Screen name="Confirm" component={ConfirmScreen} />
         </Stack.Navigator>
       </NavigationContainer>

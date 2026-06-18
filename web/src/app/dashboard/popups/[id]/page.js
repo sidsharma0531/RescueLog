@@ -212,6 +212,9 @@ export default function PopupDetailPage() {
   const comparisonW = driverW != null ? driverW : manualW != null ? manualW : null;
   const comparisonIsManual = driverW == null && manualW != null;
   const hasComparison = comparisonW != null;
+  // Cart Mode (Second Mile): the total weight is the scale reading, not an AI
+  // estimate — the AI only provides the category breakdown of that weight.
+  const isCart = popup.mode === 'cart' || summary.scale_weight_lbs != null;
   let lbDiff = null;
   let pctDiff = null;
   if (hasComparison && aiW != null) {
@@ -289,6 +292,11 @@ export default function PopupDetailPage() {
             </>
           )}
           <StatusBadge status={popup.status} />
+          {isCart && (
+            <span className="inline-flex items-center rounded-full bg-rescue-green-light px-2.5 py-0.5 text-xs font-semibold text-rescue-green-dark">
+              Cart Log
+            </span>
+          )}
         </div>
         {nameError && <p className="mt-1 text-sm text-red-600">{nameError}</p>}
         <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-gray-500">
@@ -395,13 +403,18 @@ export default function PopupDetailPage() {
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
-                AI estimated weight
+                {isCart ? 'Cart weight (scale)' : 'AI estimated weight'}
               </p>
               <p className="mt-1 text-3xl font-bold text-rescue-green">
                 {aiW != null ? formatLbs(aiW) : '—'}
               </p>
+              {isCart && (
+                <p className="mt-0.5 text-xs text-gray-400">
+                  Total from the scale; AI distributed the category breakdown
+                </p>
+              )}
             </div>
-            {!addingEstimate && (
+            {!addingEstimate && !isCart && (
               <button
                 onClick={startAddEstimate}
                 className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 transition hover:border-rescue-green hover:text-rescue-green"

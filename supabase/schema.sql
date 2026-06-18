@@ -17,6 +17,7 @@ create table if not exists organizations (
   id            uuid primary key default gen_random_uuid(),
   name          text not null,
   status        text default 'pending',   -- pending | approved
+  capture_mode  text default 'popup',     -- popup | cart (drives the mobile flow)
   contact_name  text,
   email         text,
   phone         text,
@@ -64,6 +65,8 @@ create table if not exists popup_logs (
   longitude              double precision,
   driver_weight_estimate numeric,
   manual_estimate_lbs    numeric,   -- admin-entered reference weight (dashboard)
+  mode                   text default 'popup',  -- popup | cart
+  scale_weight_lbs       numeric,   -- cart mode: ground-truth weight from the scale
   ai_total_weight        numeric,
   ai_category_summary    jsonb,
   status                 text default 'processing',  -- processing | complete | partial | failed
@@ -97,6 +100,14 @@ create index if not exists idx_popup_logs_location_id     on popup_logs(location
 create index if not exists idx_popup_logs_status          on popup_logs(status);
 create index if not exists idx_popup_logs_organization_id on popup_logs(organization_id);
 create index if not exists idx_popup_photos_log_id        on popup_photos(popup_log_id);
+
+-- ---- Migrations (safe on existing databases) -------------------
+-- Cart Mode (added after the first release). capture_mode drives which capture
+-- flow the mobile app shows; mode/scale_weight_lbs record per-cart logs whose
+-- total weight comes from a scale rather than an AI estimate.
+alter table organizations add column if not exists capture_mode text default 'popup';
+alter table popup_logs    add column if not exists mode text default 'popup';
+alter table popup_logs    add column if not exists scale_weight_lbs numeric;
 
 -- ---- Row Level Security ----------------------------------------
 -- All app traffic goes through the Next.js API using the service-role
@@ -140,3 +151,23 @@ values ('00000000-0000-0000-0000-000000000001',
         'Second Servings Houston',
         'approved')
 on conflict (id) do nothing;
+
+-- ---- Seed: Cart Mode beta partner ------------------------------
+-- Second Mile uses Cart Mode (weigh each cart on a scale, AI categorizes the
+-- contents). Pinned to a stable UUID; capture_mode flips its mobile flow to
+-- "Cart Log".
+insert into organizations (id, name, status, capture_mode)
+values ('00000000-0000-0000-0000-000000000002',
+        'Second Mile',
+        'approved',
+        'cart')
+on conflict (id) do update set status = 'approved', capture_mode = 'cart';
+
+-- Demo driver for Second Mile (login: "Volunteer", PIN 1234).
+insert into drivers (organization_id, name, pin)
+select '00000000-0000-0000-0000-000000000002', 'Volunteer', '1234'
+where not exists (
+  select 1 from drivers
+  where organization_id = '00000000-0000-0000-0000-000000000002'
+    and name = 'Volunteer'
+);

@@ -60,10 +60,38 @@ async function countPending(logId) {
   return count || 0;
 }
 
+// Cart Mode: the cart was weighed on a scale, so the entered scale weight is
+// the ground-truth total. Rescale the AI's category weights to sum to it (the
+// AI's job is the breakdown; the scale gives the total) and report that as the
+// total. No-op when there's no scale weight, so pop-up logs are unchanged.
+function applyScaleWeight(summary, scaleWeightLbs) {
+  const scale = Number(scaleWeightLbs);
+  if (!summary || !Number.isFinite(scale) || scale <= 0) return;
+
+  const aiTotal = summary.total_weight_lbs || 0;
+  if (aiTotal > 0) {
+    const k = scale / aiTotal;
+    summary.categories = (summary.categories || []).map((c) => ({
+      ...c,
+      weight_lbs: Math.round((c.weight_lbs || 0) * k),
+    }));
+  }
+  const total = (summary.categories || []).reduce(
+    (s, c) => s + (c.weight_lbs || 0),
+    0,
+  );
+  summary.categories = (summary.categories || []).map((c) => ({
+    ...c,
+    percentage: total > 0 ? Math.round(((c.weight_lbs || 0) / total) * 1000) / 10 : 0,
+  }));
+  summary.total_weight_lbs = Math.round(scale);
+  summary.scale_weight_lbs = Math.round(scale);
+}
+
 // Re-aggregate the log's completed photos into its summary. When `finalize`
 // is true, also write the terminal status: 'failed' only if nothing
 // completed, 'partial' if some failed, else 'complete'.
-async function refreshLogSummary(logId, driverWeightEstimate, finalize) {
+async function refreshLogSummary(logId, driverWeightEstimate, scaleWeightLbs, finalize) {
   const { data: allPhotos } = await supabaseAdmin
     .from('popup_photos')
     .select('ai_analysis, processing_status')
@@ -79,6 +107,7 @@ async function refreshLogSummary(logId, driverWeightEstimate, finalize) {
     completed.map((p) => p.ai_analysis),
     driverWeightEstimate,
   );
+  applyScaleWeight(summary, scaleWeightLbs);
 
   const update = {
     ai_category_summary: summary,
@@ -100,9 +129,11 @@ async function refreshLogSummary(logId, driverWeightEstimate, finalize) {
 // their rows, refresh the aggregate, and finalize the status if nothing is
 // left. Returns { remaining, analyzed }. One photo failing never throws out.
 export async function processPopupBatch(logId) {
+  // select('*') so scale_weight_lbs is picked up where present without
+  // breaking on databases that predate the Cart Mode migration.
   const { data: log } = await supabaseAdmin
     .from('popup_logs')
-    .select('id, driver_weight_estimate')
+    .select('*')
     .eq('id', logId)
     .maybeSingle();
   if (!log) return { remaining: 0, analyzed: 0 };
@@ -117,7 +148,12 @@ export async function processPopupBatch(logId) {
 
   // Nothing pending — make sure the summary + status are finalized.
   if (!batch || batch.length === 0) {
-    await refreshLogSummary(logId, log.driver_weight_estimate, true);
+    await refreshLogSummary(
+      logId,
+      log.driver_weight_estimate,
+      log.scale_weight_lbs,
+      true,
+    );
     return { remaining: 0, analyzed: 0 };
   }
 
@@ -168,7 +204,12 @@ export async function processPopupBatch(logId) {
   );
 
   const remaining = await countPending(logId);
-  await refreshLogSummary(logId, log.driver_weight_estimate, remaining === 0);
+  await refreshLogSummary(
+    logId,
+    log.driver_weight_estimate,
+    log.scale_weight_lbs,
+    remaining === 0,
+  );
   return { remaining, analyzed: batch.length };
 }
 

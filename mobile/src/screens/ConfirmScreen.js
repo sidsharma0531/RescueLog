@@ -3,7 +3,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, radius } from '../theme';
 
 export default function ConfirmScreen({ navigation, route }) {
-  const { locationName, photoCount } = route.params || {};
+  const { locationName, photoCount, mode } = route.params || {};
+  const isCart = mode === 'cart';
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -11,7 +12,7 @@ export default function ConfirmScreen({ navigation, route }) {
         <View style={styles.checkCircle}>
           <Text style={styles.check}>✓</Text>
         </View>
-        <Text style={styles.title}>Pop-up logged!</Text>
+        <Text style={styles.title}>{isCart ? 'Cart logged!' : 'Pop-up logged!'}</Text>
         {locationName ? (
           <Text style={styles.location}>{locationName}</Text>
         ) : null}
@@ -19,8 +20,9 @@ export default function ConfirmScreen({ navigation, route }) {
           {photoCount || 0} photo{photoCount === 1 ? '' : 's'} submitted
         </Text>
         <Text style={styles.note}>
-          The AI category breakdown will appear on the dashboard in about a
-          minute.
+          {isCart
+            ? 'The AI category breakdown of this cart will appear on the dashboard in about a minute.'
+            : 'The AI category breakdown will appear on the dashboard in about a minute.'}
         </Text>
       </View>
 
