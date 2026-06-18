@@ -1,29 +1,28 @@
 import { NextResponse } from 'next/server';
+import { cookies } from 'next/headers';
 import { supabaseAdmin } from '@/lib/supabase';
+import { getSessionOrgId } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 
-// GET /api/drivers?organization_id=X — active drivers in an organization
-// (for the mobile login dropdown). organization_id is required so the
-// dropdown is always scoped to a specific org. Never returns PINs.
+// GET /api/drivers?organization_id=X — active drivers in an organization.
+// The mobile login dropdown passes organization_id explicitly; the dashboard
+// calls without it and falls back to the signed-in admin's org, so its driver
+// filter is scoped to that org. Never returns PINs.
 export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
-    const organizationId = searchParams.get('organization_id');
+    const organizationId =
+      searchParams.get('organization_id') || getSessionOrgId(cookies());
 
-    if (!organizationId) {
-      return NextResponse.json(
-        { error: 'organization_id query parameter is required.' },
-        { status: 400 },
-      );
-    }
-
-    const { data, error } = await supabaseAdmin
+    let query = supabaseAdmin
       .from('drivers')
       .select('id, name')
-      .eq('organization_id', organizationId)
       .eq('is_active', true)
       .order('name');
+    if (organizationId) query = query.eq('organization_id', organizationId);
+
+    const { data, error } = await query;
     if (error) throw error;
     return NextResponse.json({ drivers: data || [] });
   } catch (e) {

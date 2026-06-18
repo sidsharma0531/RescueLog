@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
+import { cookies } from 'next/headers';
 import { supabaseAdmin } from '@/lib/supabase';
+import { getSessionOrgId } from '@/lib/auth';
 import { startOfDay, endOfDay, toDateKey } from '@/lib/dates';
 import { CATEGORY_KEYS, normalizeCategoryKey } from '@/lib/categories';
 
@@ -21,6 +23,8 @@ export async function GET(request) {
           'driver_weight_estimate, ai_category_summary, status, location:locations(name)',
       )
       .order('logged_at', { ascending: false });
+    const orgId = getSessionOrgId(cookies());
+    if (orgId) query = query.eq('organization_id', orgId);
     if (from) query = query.gte('logged_at', startOfDay(from));
     if (to) query = query.lte('logged_at', endOfDay(to));
 

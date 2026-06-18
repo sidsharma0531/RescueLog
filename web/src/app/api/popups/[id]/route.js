@@ -1,11 +1,20 @@
 import { NextResponse } from 'next/server';
+import { cookies } from 'next/headers';
 import {
   supabaseAdmin,
   PHOTO_BUCKET,
   withSignedPhotoUrls,
 } from '@/lib/supabase';
+import { getSessionOrgId } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
+
+// True if the signed-in admin's org may not touch this log. A null session org
+// (legacy/unassigned admin) is allowed everything (pre-scoping behavior); a log
+// with no org is treated as shared/legacy and allowed.
+function blockedByOrg(logOrgId, sessionOrgId) {
+  return !!sessionOrgId && !!logOrgId && logOrgId !== sessionOrgId;
+}
 
 // GET /api/popups/[id] — one pop-up log with every photo and its AI analysis.
 export async function GET(request, { params }) {
@@ -18,7 +27,7 @@ export async function GET(request, { params }) {
       .eq('id', id)
       .maybeSingle();
     if (error) throw error;
-    if (!popup) {
+    if (!popup || blockedByOrg(popup.organization_id, getSessionOrgId(cookies()))) {
       return NextResponse.json(
         { error: 'Pop-up log not found.' },
         { status: 404 },
@@ -98,6 +107,15 @@ export async function PATCH(request, { params }) {
       );
     }
 
+    const { data: existing } = await supabaseAdmin
+      .from('popup_logs')
+      .select('organization_id')
+      .eq('id', id)
+      .maybeSingle();
+    if (!existing || blockedByOrg(existing.organization_id, getSessionOrgId(cookies()))) {
+      return NextResponse.json({ error: 'Pop-up log not found.' }, { status: 404 });
+    }
+
     const { data, error } = await supabaseAdmin
       .from('popup_logs')
       .update(update)
@@ -126,6 +144,17 @@ export async function PATCH(request, { params }) {
 export async function DELETE(request, { params }) {
   try {
     const { id } = params;
+
+    // Org guard before any destructive work, so an admin can't delete another
+    // org's log (or its photos) by id.
+    const { data: existing } = await supabaseAdmin
+      .from('popup_logs')
+      .select('organization_id')
+      .eq('id', id)
+      .maybeSingle();
+    if (!existing || blockedByOrg(existing.organization_id, getSessionOrgId(cookies()))) {
+      return NextResponse.json({ error: 'Pop-up log not found.' }, { status: 404 });
+    }
 
     // Grab the storage paths first so we can clean up the bucket before
     // the popup_photos rows cascade away.

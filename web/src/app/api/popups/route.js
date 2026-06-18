@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
+import { cookies } from 'next/headers';
 import { supabaseAdmin } from '@/lib/supabase';
+import { getSessionOrgId } from '@/lib/auth';
 import { startOfDay, endOfDay } from '@/lib/dates';
 
 export const dynamic = 'force-dynamic';
@@ -19,6 +21,11 @@ export async function GET(request) {
       .select(POPUP_SELECT)
       .order('logged_at', { ascending: false })
       .limit(limit);
+
+    // Scope to the signed-in admin's organization. A null org (legacy session
+    // / unassigned admin) shows all orgs — the pre-scoping behavior.
+    const orgId = getSessionOrgId(cookies());
+    if (orgId) query = query.eq('organization_id', orgId);
 
     const from = searchParams.get('from');
     const to = searchParams.get('to');

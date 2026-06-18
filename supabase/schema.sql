@@ -34,14 +34,16 @@ create table if not exists drivers (
   created_at       timestamptz default now()
 );
 
--- ADMIN USERS: dashboard login (Max, Lisa, Barbara).
+-- ADMIN USERS: dashboard login. Each admin is scoped to one organization, so
+-- the dashboard only shows that org's logs/data.
 create table if not exists admin_users (
-  id             uuid primary key default gen_random_uuid(),
-  name           text not null,
-  email          text unique not null,
-  password_hash  text not null,
-  role           text default 'admin',
-  created_at     timestamptz default now()
+  id               uuid primary key default gen_random_uuid(),
+  organization_id  uuid references organizations(id),
+  name             text not null,
+  email            text unique not null,
+  password_hash    text not null,
+  role             text default 'admin',
+  created_at       timestamptz default now()
 );
 
 -- LOCATIONS: pop-up sites, auto-built from GPS and named once by a driver.
@@ -100,6 +102,7 @@ create index if not exists idx_popup_logs_location_id     on popup_logs(location
 create index if not exists idx_popup_logs_status          on popup_logs(status);
 create index if not exists idx_popup_logs_organization_id on popup_logs(organization_id);
 create index if not exists idx_popup_photos_log_id        on popup_photos(popup_log_id);
+create index if not exists idx_admin_users_org            on admin_users(organization_id);
 
 -- ---- Migrations (safe on existing databases) -------------------
 -- Cart Mode (added after the first release). capture_mode drives which capture
@@ -108,6 +111,8 @@ create index if not exists idx_popup_photos_log_id        on popup_photos(popup_
 alter table organizations add column if not exists capture_mode text default 'popup';
 alter table popup_logs    add column if not exists mode text default 'popup';
 alter table popup_logs    add column if not exists scale_weight_lbs numeric;
+-- Per-org admin scoping (added after Cart Mode): each admin sees only their org.
+alter table admin_users   add column if not exists organization_id uuid references organizations(id);
 
 -- ---- Row Level Security ----------------------------------------
 -- All app traffic goes through the Next.js API using the service-role

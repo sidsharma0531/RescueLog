@@ -5,7 +5,8 @@ const { supabase } = require('./_client');
 
 // Launch-partner org id (seeded by supabase/schema.sql). Existing seeded
 // drivers belong to that organization.
-const ORG_ID = '00000000-0000-0000-0000-000000000001';
+const ORG_ID = '00000000-0000-0000-0000-000000000001';      // Second Servings
+const SECOND_MILE_ID = '00000000-0000-0000-0000-000000000002';
 
 const DRIVERS = [
   { name: 'Greg', pin: '1234' },
@@ -13,10 +14,12 @@ const DRIVERS = [
   { name: 'Devon', pin: '3456' },
 ];
 
+// Each admin is scoped to one organization (the dashboard filters to it).
 const ADMINS = [
-  { name: 'Max Curry', email: 'mcurry@secondservingshouston.org' },
-  { name: 'Lisa', email: 'lisa@secondservings.org' },
-  { name: 'Barbara', email: 'barbara@secondservings.org' },
+  { name: 'Max Curry', email: 'mcurry@secondservingshouston.org', organization_id: ORG_ID },
+  { name: 'Lisa', email: 'lisa@secondservings.org', organization_id: ORG_ID },
+  { name: 'Barbara', email: 'barbara@secondservings.org', organization_id: ORG_ID },
+  { name: 'Julie', email: 'julie@secondmile.org', organization_id: SECOND_MILE_ID },
 ];
 
 const ADMIN_PASSWORD = 'rescue123';

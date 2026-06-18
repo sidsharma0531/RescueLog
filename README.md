@@ -111,14 +111,19 @@ no App Store submission needed. For production, use
 
 `scripts/seed-drivers.js` creates these (change PINs/passwords before any real use):
 
-| Type   | Login                          | Secret      |
-| ------ | ------------------------------ | ----------- |
-| Driver | Greg                           | PIN `1234`  |
-| Driver | Maria                          | PIN `2345`  |
-| Driver | Devon                          | PIN `3456`  |
-| Admin  | `mcurry@secondservingshouston.org` | `rescue123` |
-| Admin  | `lisa@secondservings.org`      | `rescue123` |
-| Admin  | `barbara@secondservings.org`   | `rescue123` |
+| Type   | Login                          | Secret      | Organization     |
+| ------ | ------------------------------ | ----------- | ---------------- |
+| Driver | Greg                           | PIN `1234`  | Second Servings  |
+| Driver | Maria                          | PIN `2345`  | Second Servings  |
+| Driver | Devon                          | PIN `3456`  | Second Servings  |
+| Driver | Volunteer                      | PIN `1234`  | Second Mile      |
+| Admin  | `mcurry@secondservingshouston.org` | `rescue123` | Second Servings  |
+| Admin  | `lisa@secondservings.org`      | `rescue123` | Second Servings  |
+| Admin  | `barbara@secondservings.org`   | `rescue123` | Second Servings  |
+| Admin  | `julie@secondmile.org`         | `rescue123` | Second Mile      |
+
+Each admin is scoped to one organization and sees only that org's logs on the
+dashboard.
 
 ---
 

@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
+import { cookies } from 'next/headers';
 import { supabaseAdmin } from '@/lib/supabase';
+import { getSessionOrgId } from '@/lib/auth';
 import { startOfDay, endOfDay } from '@/lib/dates';
 import { CATEGORIES } from '@/lib/categories';
 import { categorySummaryToFlatRow } from '@/lib/aggregate';
@@ -20,6 +22,8 @@ export async function GET(request) {
       .from('popup_logs')
       .select('*, driver:drivers(name), location:locations(name)')
       .order('logged_at', { ascending: false });
+    const orgId = getSessionOrgId(cookies());
+    if (orgId) query = query.eq('organization_id', orgId);
     if (from) query = query.gte('logged_at', startOfDay(from));
     if (to) query = query.lte('logged_at', endOfDay(to));
     if (locationId) query = query.eq('location_id', locationId);

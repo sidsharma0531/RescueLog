@@ -22,9 +22,11 @@ export async function POST(request) {
       );
     }
 
+    // select('*') so organization_id is included where present without
+    // breaking logins on databases that predate the org-scoping migration.
     const { data: admin, error } = await supabaseAdmin
       .from('admin_users')
-      .select('id, name, email, password_hash, role')
+      .select('*')
       .eq('email', email)
       .limit(1)
       .maybeSingle();
