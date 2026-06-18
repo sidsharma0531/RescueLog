@@ -10,7 +10,20 @@ alter table organizations add column if not exists capture_mode text default 'po
 alter table popup_logs    add column if not exists mode text default 'popup';
 alter table popup_logs    add column if not exists scale_weight_lbs numeric;
 alter table popup_logs    add column if not exists household_id text;
+alter table popup_logs    add column if not exists ai_total_value numeric;  -- est. retail value
 alter table admin_users   add column if not exists organization_id uuid references organizations(id);
+
+-- Value feature: per-org pinned item prices that override the AI's estimate.
+create table if not exists price_references (
+  id               uuid primary key default gen_random_uuid(),
+  organization_id  uuid references organizations(id),
+  item_name        text not null,
+  price_usd        numeric not null,
+  unit             text not null default 'per_unit',  -- per_unit | per_lb
+  created_at       timestamptz default now()
+);
+create index if not exists idx_price_references_org on price_references(organization_id);
+alter table price_references enable row level security;
 
 -- 2. Second Mile org (Cart Mode) + demo driver -----------------
 insert into organizations (id, name, status, capture_mode)

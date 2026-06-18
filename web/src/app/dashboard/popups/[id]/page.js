@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { apiGet, apiPost, apiPatch, apiDelete } from '@/lib/api-client';
 import { categoryLabel } from '@/lib/categories';
-import { formatDateTime, formatLbs, formatConfidence } from '@/lib/format';
+import { formatDateTime, formatLbs, formatUsd, formatConfidence } from '@/lib/format';
 import Card from '@/components/Card';
 import CategoryChart from '@/components/CategoryChart';
 import PhotoGallery from '@/components/PhotoGallery';
@@ -206,6 +206,7 @@ export default function PopupDetailPage() {
     popup.location_name_manual || popup.location?.name || 'Unknown site';
   const summary = popup.ai_category_summary || {};
   const aiW = popup.ai_total_weight;
+  const aiValue = popup.ai_total_value ?? summary.total_value_usd ?? null;
   // Comparison estimate: the driver's app estimate if present, otherwise an
   // admin-entered manual reference. Only when one exists do we show the
   // comparison + difference boxes.
@@ -477,6 +478,20 @@ export default function PopupDetailPage() {
         </div>
       )}
 
+      {aiValue != null && aiValue > 0 && (
+        <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+          <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
+            Est. Retail Value
+          </p>
+          <p className="mt-1 text-3xl font-bold text-rescue-green">
+            {formatUsd(aiValue)}
+          </p>
+          <p className="mt-0.5 text-xs text-gray-400">
+            Estimated retail value of the rescued food
+          </p>
+        </div>
+      )}
+
       <Card title="AI category breakdown">
         <CategoryChart data={summary.categories} variant="bars" />
         {summary.overall_confidence != null && (
@@ -563,9 +578,9 @@ function PhotoAnalysis({ photo, index }) {
   let summaryText = ' — pending';
   if (failed) summaryText = ' — AI analysis failed';
   else if (a)
-    summaryText = ` — ${formatLbs(a.total_estimated_weight_lbs)}, ${formatConfidence(
-      a.overall_confidence,
-    )} confidence`;
+    summaryText = ` — ${formatLbs(a.total_estimated_weight_lbs)} · ${formatUsd(
+      a.total_estimated_value_usd,
+    )} · ${formatConfidence(a.overall_confidence)} confidence`;
 
   return (
     <details className="rounded-xl border border-gray-200 p-3">
@@ -594,8 +609,20 @@ function PhotoAnalysis({ photo, index }) {
                     <span className="font-medium">{categoryLabel(c.name)}</span>
                     {' — '}
                     {formatLbs(c.estimated_weight_lbs)}
+                    {c.estimated_value_usd > 0 && (
+                      <span className="font-medium text-rescue-green">
+                        {' · '}
+                        {formatUsd(c.estimated_value_usd)}
+                      </span>
+                    )}
                     {c.items?.length ? (
-                      <span className="text-gray-400"> · {c.items.join(', ')}</span>
+                      <span className="text-gray-400">
+                        {' · '}
+                        {c.items
+                          .map((it) => (typeof it === 'string' ? it : it.name))
+                          .filter(Boolean)
+                          .join(', ')}
+                      </span>
                     ) : null}
                   </li>
                 ))}

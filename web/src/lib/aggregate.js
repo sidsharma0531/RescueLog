@@ -12,6 +12,7 @@ export function aggregatePhotoAnalyses(analyses, driverEstimateLbs) {
   );
 
   const totals = Object.fromEntries(CATEGORY_KEYS.map((k) => [k, 0]));
+  const values = Object.fromEntries(CATEGORY_KEYS.map((k) => [k, 0]));
   let confidenceSum = 0;
   let confidenceCount = 0;
 
@@ -19,6 +20,7 @@ export function aggregatePhotoAnalyses(analyses, driverEstimateLbs) {
     for (const cat of a.categories) {
       const key = normalizeCategoryKey(cat.name);
       totals[key] += Number(cat.estimated_weight_lbs) || 0;
+      values[key] += Number(cat.estimated_value_usd) || 0;
     }
     if (typeof a.overall_confidence === 'number') {
       confidenceSum += a.overall_confidence;
@@ -27,18 +29,21 @@ export function aggregatePhotoAnalyses(analyses, driverEstimateLbs) {
   }
 
   const totalWeight = CATEGORY_KEYS.reduce((s, k) => s + totals[k], 0);
+  const totalValue = CATEGORY_KEYS.reduce((s, k) => s + values[k], 0);
 
   const categories = CATEGORIES.map((c) => ({
     name: c.key,
     weight_lbs: Math.round(totals[c.key]),
+    value_usd: Math.round(values[c.key]),
     percentage: totalWeight > 0 ? round1((totals[c.key] / totalWeight) * 100) : 0,
   }))
-    .filter((c) => c.weight_lbs > 0)
+    .filter((c) => c.weight_lbs > 0 || c.value_usd > 0)
     .sort((a, b) => b.weight_lbs - a.weight_lbs);
 
   const summary = {
     categories,
     total_weight_lbs: Math.round(totalWeight),
+    total_value_usd: Math.round(totalValue),
     photo_count: (analyses || []).length,
     overall_confidence:
       confidenceCount > 0 ? round2(confidenceSum / confidenceCount) : null,
@@ -61,11 +66,13 @@ export function categorySummaryToFlatRow(summary) {
   for (const k of CATEGORY_KEYS) {
     row[`${k}_lbs`] = 0;
     row[`${k}_pct`] = 0;
+    row[`${k}_value`] = 0;
   }
   for (const c of summary?.categories || []) {
     const key = normalizeCategoryKey(c.name);
     row[`${key}_lbs`] = c.weight_lbs || 0;
     row[`${key}_pct`] = c.percentage || 0;
+    row[`${key}_value`] = c.value_usd || 0;
   }
   return row;
 }

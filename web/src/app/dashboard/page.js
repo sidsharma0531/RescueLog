@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { apiGet } from '@/lib/api-client';
 import { daysAgoISO, todayISO } from '@/lib/dates';
 import { categoryLabel } from '@/lib/categories';
-import { formatNumber } from '@/lib/format';
+import { formatNumber, formatUsd } from '@/lib/format';
 import { StatsGrid, StatCard } from '@/components/StatsGrid';
 import CategoryChart from '@/components/CategoryChart';
 import PopupsTable from '@/components/PopupsTable';
@@ -72,6 +72,11 @@ export default function OverviewPage() {
             <StatCard
               label="Est. lbs rescued"
               value={formatNumber(stats.total_ai_weight_lbs)}
+              sub="AI estimated"
+            />
+            <StatCard
+              label="Est. retail value"
+              value={formatUsd(stats.total_est_value_usd)}
               sub="AI estimated"
             />
             <StatCard label="Sites served" value={formatNumber(stats.unique_sites)} />

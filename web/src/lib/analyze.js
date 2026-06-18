@@ -1,6 +1,8 @@
 import { supabaseAdmin } from './supabase';
 import { analyzePopupPhotoFromUrl } from './anthropic';
 import { aggregatePhotoAnalyses } from './aggregate';
+import { applyPriceReferences } from './pricing';
+import { orgIdForLog } from './org';
 
 // SERVER-ONLY. AI pipeline for a pop-up log's photos, processed in small
 // sequential batches. There are NO server-to-server self-calls — those get
@@ -64,6 +66,8 @@ async function countPending(logId) {
 // the ground-truth total. Rescale the AI's category weights to sum to it (the
 // AI's job is the breakdown; the scale gives the total) and report that as the
 // total. No-op when there's no scale weight, so pop-up logs are unchanged.
+// Leaves category value_usd untouched — value is the AI's retail estimate,
+// independent of the scale-corrected weight.
 function applyScaleWeight(summary, scaleWeightLbs) {
   const scale = Number(scaleWeightLbs);
   if (!summary || !Number.isFinite(scale) || scale <= 0) return;
@@ -88,10 +92,27 @@ function applyScaleWeight(summary, scaleWeightLbs) {
   summary.scale_weight_lbs = Math.round(scale);
 }
 
+// Load an organization's price references for the value override. Returns []
+// when none are set (the common case) or the table is absent, making the
+// override a no-op.
+async function fetchOrgPriceReferences(organizationId) {
+  const { data } = await supabaseAdmin
+    .from('price_references')
+    .select('item_name, price_usd, unit')
+    .eq('organization_id', orgIdForLog(organizationId));
+  return data || [];
+}
+
 // Re-aggregate the log's completed photos into its summary. When `finalize`
 // is true, also write the terminal status: 'failed' only if nothing
 // completed, 'partial' if some failed, else 'complete'.
-async function refreshLogSummary(logId, driverWeightEstimate, scaleWeightLbs, finalize) {
+async function refreshLogSummary(
+  logId,
+  driverWeightEstimate,
+  organizationId,
+  scaleWeightLbs,
+  finalize,
+) {
   const { data: allPhotos } = await supabaseAdmin
     .from('popup_photos')
     .select('ai_analysis, processing_status')
@@ -103,8 +124,11 @@ async function refreshLogSummary(logId, driverWeightEstimate, scaleWeightLbs, fi
   );
   const failed = photos.filter((p) => p.processing_status === 'failed').length;
 
+  // Apply the org's pinned prices to each photo's analysis before aggregating,
+  // so the rolled-up value reflects any overrides.
+  const priceRefs = await fetchOrgPriceReferences(organizationId);
   const summary = aggregatePhotoAnalyses(
-    completed.map((p) => p.ai_analysis),
+    completed.map((p) => applyPriceReferences(p.ai_analysis, priceRefs)),
     driverWeightEstimate,
   );
   applyScaleWeight(summary, scaleWeightLbs);
@@ -123,6 +147,17 @@ async function refreshLogSummary(logId, driverWeightEstimate, scaleWeightLbs, fi
   }
 
   await supabaseAdmin.from('popup_logs').update(update).eq('id', logId);
+
+  // ai_total_value goes in a separate, best-effort write so photo processing
+  // keeps working on databases that predate the column. The value is also
+  // embedded in ai_category_summary.total_value_usd, which the UI falls back to.
+  const { error: valErr } = await supabaseAdmin
+    .from('popup_logs')
+    .update({ ai_total_value: summary.total_value_usd })
+    .eq('id', logId);
+  if (valErr) {
+    console.warn('[analyze] ai_total_value not written (column missing?):', valErr.message);
+  }
 }
 
 // Process ONE batch (up to BATCH_SIZE pending photos): analyze them, update
@@ -151,6 +186,7 @@ export async function processPopupBatch(logId) {
     await refreshLogSummary(
       logId,
       log.driver_weight_estimate,
+      log.organization_id,
       log.scale_weight_lbs,
       true,
     );
@@ -207,6 +243,7 @@ export async function processPopupBatch(logId) {
   await refreshLogSummary(
     logId,
     log.driver_weight_estimate,
+    log.organization_id,
     log.scale_weight_lbs,
     remaining === 0,
   );

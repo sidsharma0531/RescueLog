@@ -30,6 +30,16 @@ export function formatLbs(n) {
   return `${Number(n).toLocaleString('en-US')} lbs`;
 }
 
+// Estimated retail value in whole US dollars (e.g. 1234 -> "$1,234").
+export function formatUsd(n) {
+  if (n === null || n === undefined || n === '') return '—';
+  return Number(n).toLocaleString('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    maximumFractionDigits: 0,
+  });
+}
+
 export function formatPercent(n) {
   if (n === null || n === undefined || n === '') return '—';
   return `${Number(n).toFixed(1)}%`;
