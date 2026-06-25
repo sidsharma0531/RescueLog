@@ -1,53 +1,132 @@
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { useEffect, useState } from 'react';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  ActivityIndicator,
+  StyleSheet,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import * as api from '../services/api';
+import ProgressBar from '../components/ProgressBar';
 import { colors, radius } from '../theme';
 
 export default function ConfirmScreen({ navigation, route }) {
-  const { locationName, photoCount, mode } = route.params || {};
+  const { popupId, locationName, photoCount, mode } = route.params || {};
   const isCart = mode === 'cart';
+  const noun = isCart ? 'Cart' : 'Pop-up';
+
+  // Live processing progress. Starts optimistic from the submitted photo count,
+  // then tracks the server's real counts as the AI works through the photos.
+  const [proc, setProc] = useState({
+    status: 'processing',
+    total: photoCount || 0,
+    done: 0,
+    completed: 0,
+    failed: 0,
+  });
+
+  // Poll the progress endpoint. Each call drives the next batch of analysis and
+  // returns counts, so the bar advances and large uploads finish even with no
+  // dashboard open. Stops when the log reaches a terminal status.
+  useEffect(() => {
+    if (!popupId) {
+      setProc((p) => ({ ...p, status: 'complete' }));
+      return undefined;
+    }
+    let cancelled = false;
+    let timer;
+    const tick = async () => {
+      try {
+        const d = await api.pollProcessing(popupId);
+        if (cancelled) return;
+        setProc((prev) => ({
+          status: d.status || 'processing',
+          total: d.total || prev.total,
+          done: d.done ?? prev.done,
+          completed: d.completed ?? prev.completed,
+          failed: d.failed ?? prev.failed,
+        }));
+        if (!cancelled && d.status === 'processing') {
+          timer = setTimeout(tick, 3500);
+        }
+      } catch {
+        if (!cancelled) timer = setTimeout(tick, 5000); // retry on transient error
+      }
+    };
+    // Small delay so the upload route's background drain has a head start.
+    timer = setTimeout(tick, 800);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [popupId]);
+
+  const processing = proc.status === 'processing';
+  const failedAll = proc.status === 'failed';
+  const total = proc.total || photoCount || 0;
+
+  let title = `${noun} logged!`;
+  let detail = `All ${total} photo${total === 1 ? '' : 's'} analyzed`;
+  if (processing) {
+    title = 'Submitted!';
+    detail = `Analyzing ${proc.done} of ${total} photo${total === 1 ? '' : 's'}…`;
+  } else if (failedAll) {
+    title = "Couldn't analyze photos";
+    detail = 'The upload saved, but analysis failed. Open the dashboard to retry.';
+  } else if (proc.status === 'partial') {
+    title = `${noun} logged`;
+    detail = `${proc.completed} of ${total} analyzed · ${proc.failed} couldn't be read`;
+  }
 
   return (
     <SafeAreaView style={styles.safe}>
       <View style={styles.content}>
-        <View style={styles.checkCircle}>
-          <Text style={styles.check}>✓</Text>
+        <View style={[styles.circle, failedAll && styles.circleFail]}>
+          {processing ? (
+            <ActivityIndicator size="large" color={colors.white} />
+          ) : (
+            <Text style={styles.check}>{failedAll ? '!' : '✓'}</Text>
+          )}
         </View>
-        <Text style={styles.title}>{isCart ? 'Cart logged!' : 'Pop-up logged!'}</Text>
-        {locationName ? (
-          <Text style={styles.location}>{locationName}</Text>
-        ) : null}
-        <Text style={styles.detail}>
-          {photoCount || 0} photo{photoCount === 1 ? '' : 's'} submitted
-        </Text>
-        <Text style={styles.note}>
-          {isCart
-            ? 'The AI category breakdown of this cart will appear on the dashboard in about a minute.'
-            : 'The AI category breakdown will appear on the dashboard in about a minute.'}
-        </Text>
+
+        <Text style={styles.title}>{title}</Text>
+        {locationName ? <Text style={styles.location}>{locationName}</Text> : null}
+        <Text style={styles.detail}>{detail}</Text>
+
+        {processing && (
+          <View style={styles.progressWrap}>
+            <ProgressBar value={proc.done} total={total} />
+            <Text style={styles.note}>
+              Keep this screen open until it finishes — this can take a minute
+              for large batches.
+            </Text>
+          </View>
+        )}
+
+        {!processing && !failedAll && (
+          <Text style={styles.note}>
+            The category breakdown is on the dashboard.
+          </Text>
+        )}
       </View>
 
       <TouchableOpacity
         style={styles.button}
         onPress={() => navigation.replace('Home')}
       >
-        <Text style={styles.buttonText}>Back to Home</Text>
+        <Text style={styles.buttonText}>
+          {processing ? 'Done — leave it running' : 'Back to Home'}
+        </Text>
       </TouchableOpacity>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: {
-    flex: 1,
-    backgroundColor: colors.bg,
-    padding: 24,
-  },
-  content: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  checkCircle: {
+  safe: { flex: 1, backgroundColor: colors.bg, padding: 24 },
+  content: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  circle: {
     width: 92,
     height: 92,
     borderRadius: 46,
@@ -55,18 +134,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  check: {
-    color: colors.white,
-    fontSize: 52,
-    fontWeight: '800',
-    lineHeight: 58,
-  },
-  title: {
-    fontSize: 26,
-    fontWeight: '800',
-    color: colors.ink,
-    marginTop: 24,
-  },
+  circleFail: { backgroundColor: colors.danger },
+  check: { color: colors.white, fontSize: 52, fontWeight: '800', lineHeight: 58 },
+  title: { fontSize: 26, fontWeight: '800', color: colors.ink, marginTop: 24, textAlign: 'center' },
   location: {
     fontSize: 18,
     fontWeight: '600',
@@ -74,17 +144,14 @@ const styles = StyleSheet.create({
     marginTop: 6,
     textAlign: 'center',
   },
-  detail: {
-    fontSize: 16,
-    color: colors.gray,
-    marginTop: 10,
-  },
+  detail: { fontSize: 16, color: colors.gray, marginTop: 10, textAlign: 'center' },
+  progressWrap: { width: '100%', marginTop: 24, alignItems: 'center', paddingHorizontal: 8 },
   note: {
-    fontSize: 15,
+    fontSize: 14,
     color: colors.gray,
     textAlign: 'center',
-    marginTop: 16,
-    lineHeight: 22,
+    marginTop: 14,
+    lineHeight: 21,
     paddingHorizontal: 12,
   },
   button: {
@@ -93,9 +160,5 @@ const styles = StyleSheet.create({
     paddingVertical: 17,
     alignItems: 'center',
   },
-  buttonText: {
-    color: colors.white,
-    fontSize: 18,
-    fontWeight: '700',
-  },
+  buttonText: { color: colors.white, fontSize: 18, fontWeight: '700' },
 });

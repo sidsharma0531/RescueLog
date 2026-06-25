@@ -77,3 +77,10 @@ export function getRecentPopups(driverId, limit = 5) {
 export function submitPhotos(popupId, photos) {
   return postJson(`/api/popups/${popupId}/photos`, { photos });
 }
+
+// Drive + read AI processing progress for a log. Each call analyzes the next
+// small batch and returns counts: { status, total, completed, failed, done,
+// pending }. Polled by the Confirm screen until status is terminal.
+export function pollProcessing(popupId) {
+  return postJson(`/api/popups/${popupId}/progress`, {});
+}

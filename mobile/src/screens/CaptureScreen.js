@@ -186,6 +186,7 @@ export default function CaptureScreen({ navigation }) {
       await api.submitPhotos(popup.id, uploaded);
 
       navigation.replace('Confirm', {
+        popupId: popup.id,
         locationName: matchedLocation ? matchedLocation.name : manualName.trim(),
         photoCount: photos.length,
       });
@@ -196,15 +197,9 @@ export default function CaptureScreen({ navigation }) {
     }
   }
 
-  // Loading-overlay message: per-photo progress while uploading, then a
-  // generic "analyzing" message while the AI runs.
-  let overlayMessage = 'Submitting…';
-  if (uploadProgress) {
-    const n = Math.min(uploadProgress.done + 1, uploadProgress.total);
-    overlayMessage = `Uploading photo ${n} of ${uploadProgress.total}…`;
-  } else if (submitting) {
-    overlayMessage = 'AI is analyzing the food…';
-  }
+  // The overlay shows a live count + bar while uploading; the message stays
+  // simple. Processing progress is shown on the Confirm screen after upload.
+  const overlayMessage = uploadProgress ? 'Uploading photos…' : 'Submitting…';
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
@@ -319,7 +314,11 @@ export default function CaptureScreen({ navigation }) {
         </View>
       </KeyboardAvoidingView>
 
-      <LoadingOverlay visible={submitting} message={overlayMessage} />
+      <LoadingOverlay
+        visible={submitting}
+        message={overlayMessage}
+        progress={uploadProgress}
+      />
     </SafeAreaView>
   );
 }

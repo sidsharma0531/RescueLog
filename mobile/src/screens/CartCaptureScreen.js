@@ -122,6 +122,7 @@ export default function CartCaptureScreen({ navigation }) {
       await api.submitPhotos(popup.id, uploaded);
 
       navigation.replace('Confirm', {
+        popupId: popup.id,
         mode: 'cart',
         locationName: siteName,
         photoCount: photos.length,
@@ -133,13 +134,9 @@ export default function CartCaptureScreen({ navigation }) {
     }
   }
 
-  let overlayMessage = 'Submitting…';
-  if (uploadProgress) {
-    const n = Math.min(uploadProgress.done + 1, uploadProgress.total);
-    overlayMessage = `Uploading photo ${n} of ${uploadProgress.total}…`;
-  } else if (submitting) {
-    overlayMessage = 'AI is categorizing the cart…';
-  }
+  // The overlay shows a live count + bar while uploading; the message stays
+  // simple. Processing progress is shown on the Confirm screen after upload.
+  const overlayMessage = uploadProgress ? 'Uploading photos…' : 'Submitting…';
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
@@ -259,7 +256,11 @@ export default function CartCaptureScreen({ navigation }) {
         </View>
       </KeyboardAvoidingView>
 
-      <LoadingOverlay visible={submitting} message={overlayMessage} />
+      <LoadingOverlay
+        visible={submitting}
+        message={overlayMessage}
+        progress={uploadProgress}
+      />
     </SafeAreaView>
   );
 }
