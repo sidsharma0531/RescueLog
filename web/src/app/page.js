@@ -17,9 +17,9 @@ const fraunces = Fraunces({
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
 
 export const metadata = {
-  title: 'RescueLog — Turn a photo into food rescue data',
+  title: 'RescueLog | Turn a photo into food rescue data',
   description:
-    'Free AI-powered logging for food rescue nonprofits. Snap a photo of rescued food and get weights, category breakdowns, and retail value — grant-ready, automatically.',
+    'Free AI-powered logging for food rescue nonprofits. Snap a photo of rescued food and get weights, category breakdowns, and retail value. Grant-ready, automatically.',
 };
 
 // Palette
@@ -181,8 +181,8 @@ function Hero() {
           </h1>
           <p className="mt-6 max-w-xl text-lg leading-relaxed text-[#1E2A23]/75">
             Volunteers snap a photo of rescued food. RescueLog&apos;s AI logs the
-            weight, breaks it down by category, and estimates retail value —
-            grant-ready data, without a single clipboard.
+            weight, breaks it down by category, and estimates retail value.
+            Grant-ready data, without a single clipboard.
           </p>
           <div className="mt-8 flex flex-wrap items-center gap-4">
             <a
@@ -200,7 +200,7 @@ function Hero() {
             </a>
           </div>
           <p className="mt-6 text-sm text-[#1E2A23]/55">
-            iOS &amp; Android · Web dashboard · Used by Second Servings Houston
+            iOS &amp; Android · Web dashboard · Free for nonprofits
           </p>
         </div>
 
@@ -287,7 +287,7 @@ function Problem() {
   const pains = [
     {
       title: 'Paper logs and eyeball guesses',
-      body: 'Weights scribbled on clipboards in a parking lot — or estimated on sight. Every pound your team can’t prove is impact you can’t report.',
+      body: 'Weights scribbled on clipboards in a parking lot, or just estimated on sight. Every pound your team can’t prove is impact you can’t report.',
     },
     {
       title: 'Hours lost to re-keying',
@@ -295,7 +295,7 @@ function Problem() {
     },
     {
       title: 'Grant reports built on estimates',
-      body: 'Funders want category-level data — how much produce, how much protein, what it was worth. Most orgs simply can’t capture it.',
+      body: 'Funders want category-level data: how much produce, how much protein, what it was worth. Most orgs simply can’t capture it.',
     },
   ];
   return (
@@ -344,7 +344,7 @@ function HowItWorks() {
   const steps = [
     {
       title: 'Snap a photo',
-      body: 'A volunteer photographs the rescued food — tables at a pop-up, a loaded cart, whatever your flow looks like.',
+      body: 'A volunteer photographs the rescued food: tables at a pop-up, a loaded cart, whatever your flow looks like.',
       icon: (
         <StepIcon
           d="M4 8h3l2-2.5h6L17 8h3a1 1 0 011 1v9a1 1 0 01-1 1H4a1 1 0 01-1-1V9a1 1 0 011-1z"
@@ -354,19 +354,19 @@ function HowItWorks() {
     },
     {
       title: 'AI analyzes it',
-      body: 'AI vision identifies the food, estimates weight per category, and prices it at retail — in about a minute.',
+      body: 'AI vision identifies the food, estimates weight per category, and prices it at retail, all in about a minute.',
       icon: (
         <StepIcon d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8L12 3zM19 16l.9 2.1L22 19l-2.1.9L19 22l-.9-2.1L16 19l2.1-.9L19 16z" />
       ),
     },
     {
       title: 'Logged automatically',
-      body: 'Weight, category breakdown, dollar value, and the photos themselves land on your dashboard — no data entry.',
+      body: 'Weight, category breakdown, dollar value, and the photos themselves land on your dashboard. No data entry.',
       icon: <StepIcon d="M4 5h16M4 12h16M4 19h10M18.5 17.5l1.5 1.5 3-3" />,
     },
     {
       title: 'Export grant-ready reports',
-      body: 'One click turns your history into a CSV shaped for grant workbooks — by date, site, and category.',
+      body: 'One click turns your history into a CSV shaped for grant workbooks, broken out by date, site, and category.',
       icon: (
         <StepIcon d="M6 3h9l4 4v14a1 1 0 01-1 1H6a1 1 0 01-1-1V4a1 1 0 011-1zM14 3v5h5M12 11v6m0 0l-2.5-2.5M12 17l2.5-2.5" />
       ),
@@ -428,12 +428,12 @@ function Proof() {
             </Display>
             <p className="mt-5 max-w-md text-base leading-relaxed text-white/70">
               RescueLog is used by{' '}
-              <span className="font-semibold text-white">Second Servings Houston</span> — a
-              19-million-pound food rescue nonprofit — to log pop-up grocery
+              <span className="font-semibold text-white">Second Servings Houston</span>, a
+              19-million-pound food rescue nonprofit, to log pop-up grocery
               distributions across the city.
             </p>
             <p className="mt-4 max-w-md text-base leading-relaxed text-white/70">
-              The snapshot shown here is a real event from the live dashboard —
+              The snapshot shown here is a real event from the live dashboard:
               twenty volunteer photos, analyzed by AI in minutes.
             </p>
           </div>
@@ -442,7 +442,7 @@ function Proof() {
           <div className="rounded-3xl bg-white p-6 text-[#1E2A23] shadow-2xl sm:p-8">
             <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#1B4332]/10 pb-4">
               <div>
-                <p className="text-sm font-bold">Pop-Up Distribution — St. Peter Claver</p>
+                <p className="text-sm font-bold">Pop-Up Distribution · St. Peter Claver</p>
                 <p className="mt-0.5 text-xs text-[#1E2A23]/55">
                   Logged by volunteers · 20 photos · AI analyzed
                 </p>
@@ -498,7 +498,7 @@ function Proof() {
             </div>
 
             <p className="mt-5 border-t border-[#1B4332]/10 pt-4 text-xs text-[#1E2A23]/50">
-              Category-level data most orgs have never been able to capture — now
+              Category-level data most orgs have never been able to capture, now
               automatic on every rescue.
             </p>
           </div>
@@ -514,12 +514,12 @@ function WhatYouGet() {
   const items = [
     {
       title: 'Live dashboard',
-      body: 'Every rescue on one screen — totals, trends by site, and the story behind each event.',
+      body: 'Every rescue on one screen: totals, trends by site, and the story behind each event.',
       d: 'M4 5h16a1 1 0 011 1v12a1 1 0 01-1 1H4a1 1 0 01-1-1V6a1 1 0 011-1zM7 15l3-3 2.5 2.5L17 10',
     },
     {
       title: 'Category breakdowns',
-      body: 'Produce, bakery, protein, dairy and more — per event and across your whole program.',
+      body: 'Produce, bakery, protein, dairy and more, per event and across your whole program.',
       d: 'M11 3a8 8 0 108 10h-8V3zM15 3.5A8 8 0 0120.5 9H15V3.5z',
     },
     {
@@ -534,7 +534,7 @@ function WhatYouGet() {
     },
     {
       title: 'Photo evidence',
-      body: 'Every log keeps its photos — proof of what was rescued, attached to the numbers.',
+      body: 'Every log keeps its photos: proof of what was rescued, attached to the numbers.',
       d: 'M4 8h3l2-2.5h6L17 8h3a1 1 0 011 1v9a1 1 0 01-1 1H4a1 1 0 01-1-1V9a1 1 0 011-1zM12 16.2a3.2 3.2 0 100-6.4 3.2 3.2 0 000 6.4z',
     },
     {
@@ -588,9 +588,9 @@ function WhatYouGet() {
 function WhyFree() {
   const points = [
     'No contracts, no per-seat pricing, no “premium tier”',
-    'Adapts to your workflow — pop-up distributions, cart-based pantries, warehouse intake',
+    'Adapts to your workflow: pop-up distributions, cart-based pantries, warehouse intake',
     'Hands-on onboarding: we set your team up personally',
-    'Your data stays yours — export everything, anytime',
+    'Your data stays yours. Export everything, anytime',
   ];
   return (
     <section>
@@ -601,10 +601,10 @@ function WhyFree() {
             Completely free for nonprofits. Really.
           </Display>
           <p className="mt-5 max-w-lg text-base leading-relaxed text-[#1E2A23]/75">
-            RescueLog isn&apos;t a SaaS company with a sales team. It&apos;s built and run
-            by one person who cares about food rescue — and shaped side-by-side
-            with the organizations using it. If it helps you rescue more food and
-            win more funding, it&apos;s doing its job.
+            RescueLog is built by people who care about food rescue, shaped
+            side by side with the organizations using it. The goal was never to
+            sell software. If it helps you rescue more food and win more
+            funding, it&apos;s doing its job.
           </p>
         </div>
         <ul className="space-y-4">
@@ -649,8 +649,8 @@ function FinalCta() {
           See it work on your own rescues.
         </Display>
         <p className="mx-auto mt-4 max-w-xl text-base leading-relaxed text-white/75">
-          Email us and we&apos;ll set up a live demo — with your team, on your food.
-          Onboarding is personal, and it costs your organization nothing.
+          Email us and we&apos;ll set up a live demo with your team, on your own
+          food. Onboarding is personal, and it costs your organization nothing.
         </p>
         <a
           href={DEMO_MAILTO}
