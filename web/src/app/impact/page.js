@@ -53,6 +53,10 @@ export const metadata = {
   title: 'Impact | RescueLog',
   description:
     'Food rescued, measured, and proven. Every number comes from photos volunteers snapped in the field, analyzed and logged by RescueLog.',
+  // Unlisted while the numbers are placeholders: nothing links here and search
+  // engines are told not to index. REMOVE robots (and flip SAMPLE_NUMBERS,
+  // and add a nav link) when the real figures go in.
+  robots: { index: false, follow: false },
 };
 
 const PINE = '#1B4332';
