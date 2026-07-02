@@ -28,8 +28,10 @@ const MOSS = '#2D6A4F';
 const LEAF = '#52B788';
 const CREAM = '#F5F7F0';
 
+const CONTACT_EMAIL = 'waste2taste.usa@gmail.com';
+
 const DEMO_MAILTO =
-  'mailto:sid@waste2taste.org' +
+  `mailto:${CONTACT_EMAIL}` +
   '?subject=' +
   encodeURIComponent('RescueLog demo request') +
   '&body=' +
@@ -65,19 +67,20 @@ export default function LandingPage() {
 
 // ─── Shared bits ───────────────────────────────────────────────────
 
-function Leaf({ size = 36, bg = PINE }) {
+// The actual RescueLog mark — the same asset as the iOS/Android app icon
+// (copied from mobile/assets/icon.png), so the site matches the store listing.
+function Leaf({ size = 36 }) {
   return (
-    <span
-      className="inline-flex shrink-0 items-center justify-center rounded-xl"
-      style={{ width: size, height: size, backgroundColor: bg }}
-    >
-      <svg width={size * 0.6} height={size * 0.6} viewBox="0 0 24 24" aria-hidden="true">
-        <path
-          fill="#fff"
-          d="M6.05 8.05c-2.73 2.73-2.73 7.15-.02 9.88 1.47-3.4 4.09-6.24 7.36-7.93-2.77 2.34-4.71 5.61-5.39 9.32 2.6 1.23 5.8.78 7.95-1.37C19.43 14.47 20 4 20 4S9.53 4.57 6.05 8.05z"
-        />
-      </svg>
-    </span>
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src="/rescuelog-icon.png"
+      alt=""
+      aria-hidden="true"
+      width={size}
+      height={size}
+      className="shrink-0 rounded-xl"
+      style={{ width: size, height: size }}
+    />
   );
 }
 
@@ -659,10 +662,10 @@ function FinalCta() {
         <p className="mt-5 text-sm text-white/60">
           or write to{' '}
           <a
-            href="mailto:sid@waste2taste.org"
+            href={`mailto:${CONTACT_EMAIL}`}
             className="font-semibold text-white underline underline-offset-4"
           >
-            sid@waste2taste.org
+            {CONTACT_EMAIL}
           </a>
         </p>
       </div>
@@ -691,10 +694,10 @@ function Footer() {
             Sharma · Waste2Taste.
           </p>
           <a
-            href="mailto:sid@waste2taste.org"
+            href={`mailto:${CONTACT_EMAIL}`}
             className="mt-2 inline-block text-sm font-semibold text-[#2D6A4F] hover:underline"
           >
-            sid@waste2taste.org
+            {CONTACT_EMAIL}
           </a>
         </div>
 

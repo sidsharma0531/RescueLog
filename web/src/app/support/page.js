@@ -5,7 +5,7 @@ export const metadata = {
   description: 'Help and contact for RescueLog.',
 };
 
-const SUPPORT_EMAIL = 'waste2taste@gmail.com';
+const SUPPORT_EMAIL = 'waste2taste.usa@gmail.com';
 
 function Faq({ q, children }) {
   return (
