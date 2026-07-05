@@ -53,6 +53,16 @@ export const supabaseAdmin = createClient(
 
 export const PHOTO_BUCKET = 'popup-photos';
 
+// Public-object URL prefix for our own photo bucket. Used to reject
+// client-supplied photo URLs that don't point at our Storage (otherwise the
+// vision model would fetch — and bill us for — arbitrary attacker URLs).
+export function isOwnBucketPhotoUrl(url) {
+  if (typeof url !== 'string' || !supabaseUrl) return false;
+  return url.startsWith(
+    `${supabaseUrl}/storage/v1/object/public/${PHOTO_BUCKET}/`,
+  );
+}
+
 // Upload a photo buffer to Storage and return its public URL + path.
 export async function uploadPhoto(buffer, path, contentType = 'image/jpeg') {
   const { error } = await supabaseAdmin.storage

@@ -1,16 +1,9 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { supabaseAdmin } from '@/lib/supabase';
-import { getSessionOrgId } from '@/lib/auth';
-import { getDashboardOrgId } from '@/lib/org';
+import { requireAdmin } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
-
-// The org whose prices the signed-in admin manages — their session org, or the
-// dashboard default for a legacy admin without one.
-function priceOrgId() {
-  return getSessionOrgId(cookies()) || getDashboardOrgId();
-}
 
 const UNITS = ['per_unit', 'per_lb'];
 
@@ -28,13 +21,17 @@ function parseBody(body) {
   return { value: { item_name, price_usd: Math.round(price_usd * 100) / 100, unit } };
 }
 
-// GET /api/price-references — list the dashboard org's pinned item prices.
+// GET /api/price-references — list the signed-in admin org's pinned item prices.
 export async function GET() {
   try {
+    const session = requireAdmin(cookies());
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 });
+    }
     const { data, error } = await supabaseAdmin
       .from('price_references')
       .select('id, item_name, price_usd, unit, created_at')
-      .eq('organization_id', priceOrgId())
+      .eq('organization_id', session.organization_id)
       .order('item_name', { ascending: true });
     if (error) throw error;
     return NextResponse.json({ price_references: data || [] });
@@ -49,13 +46,17 @@ export async function GET() {
 // POST /api/price-references — add a pinned item price for the dashboard org.
 export async function POST(request) {
   try {
+    const session = requireAdmin(cookies());
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 });
+    }
     const body = await request.json().catch(() => ({}));
     const { value, error: invalid } = parseBody(body);
     if (invalid) return NextResponse.json({ error: invalid }, { status: 400 });
 
     const { data, error } = await supabaseAdmin
       .from('price_references')
-      .insert({ ...value, organization_id: priceOrgId() })
+      .insert({ ...value, organization_id: session.organization_id })
       .select('id, item_name, price_usd, unit, created_at')
       .single();
     if (error) throw error;

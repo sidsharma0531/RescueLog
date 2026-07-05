@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { waitUntil } from '@vercel/functions';
-import { supabaseAdmin } from '@/lib/supabase';
+import { supabaseAdmin, isOwnBucketPhotoUrl } from '@/lib/supabase';
 import { drainBatches } from '@/lib/analyze';
 
 export const dynamic = 'force-dynamic';
@@ -47,7 +47,7 @@ export async function POST(request, { params }) {
 
     // 2. Pull the photo URLs out of the JSON body.
     const body = await request.json().catch(() => ({}));
-    const photos = (Array.isArray(body.photos) ? body.photos : [])
+    const rawPhotos = (Array.isArray(body.photos) ? body.photos : [])
       .map((p) => ({
         url: typeof p?.url === 'string' ? p.url.trim() : '',
         storage_path:
@@ -56,10 +56,26 @@ export async function POST(request, { params }) {
       .filter((p) => p.url)
       .slice(0, MAX_PHOTOS_PER_REQUEST);
 
+    // Only accept URLs that point at OUR photo bucket, and only storage paths
+    // inside THIS log's own folder. Without this, a caller could (a) make the
+    // vision model fetch — and bill us for — arbitrary attacker URLs, and
+    // (b) plant another org's object path that a later delete would remove.
+    const photos = rawPhotos.filter(
+      (p) =>
+        isOwnBucketPhotoUrl(p.url) &&
+        (p.storage_path === null ||
+          p.storage_path.startsWith(`${logId}/`)),
+    );
+
     if (photos.length === 0) {
       return NextResponse.json(
-        { error: 'No photo URLs were provided.' },
+        { error: 'No valid photo URLs were provided.' },
         { status: 400 },
+      );
+    }
+    if (photos.length < rawPhotos.length) {
+      console.warn(
+        `[photos] log ${logId}: rejected ${rawPhotos.length - photos.length} photo(s) with an out-of-bucket URL or foreign storage path`,
       );
     }
 

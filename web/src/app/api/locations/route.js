@@ -26,7 +26,7 @@ export async function GET() {
 export async function POST(request) {
   try {
     const body = await request.json().catch(() => ({}));
-    const name = String(body.name || '').trim();
+    const name = String(body.name || '').trim().slice(0, 200);
     const latitude = Number(body.latitude);
     const longitude = Number(body.longitude);
 
@@ -36,7 +36,14 @@ export async function POST(request) {
         { status: 400 },
       );
     }
-    if (Number.isNaN(latitude) || Number.isNaN(longitude)) {
+    if (
+      !Number.isFinite(latitude) ||
+      !Number.isFinite(longitude) ||
+      latitude < -90 ||
+      latitude > 90 ||
+      longitude < -180 ||
+      longitude > 180
+    ) {
       return NextResponse.json(
         { error: 'Valid latitude and longitude are required.' },
         { status: 400 },
@@ -47,7 +54,7 @@ export async function POST(request) {
       .from('locations')
       .insert({
         name,
-        address: body.address ? String(body.address) : null,
+        address: body.address ? String(body.address).slice(0, 300) : null,
         latitude,
         longitude,
       })
@@ -57,8 +64,9 @@ export async function POST(request) {
 
     return NextResponse.json({ location: data }, { status: 201 });
   } catch (e) {
+    console.error('[locations] create failed:', e?.message || e);
     return NextResponse.json(
-      { error: e.message || 'Could not create location.' },
+      { error: 'Could not create location.' },
       { status: 500 },
     );
   }

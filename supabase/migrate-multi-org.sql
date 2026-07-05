@@ -49,11 +49,18 @@ where email in (
   'barbara@secondservings.org'
 );
 
--- Second Mile admin: Julie (login julie@secondmile.org / rescue123).
--- password_hash is a bcrypt of 'rescue123' — change it before real use.
+-- Second Mile admin: Julie. Create the row scoped to Second Mile, but NEVER
+-- commit a real password hash to the repo (this is a public repository).
+-- The placeholder hash below cannot match any password — set the real one
+-- out-of-band right after running this, e.g. from a machine with bcryptjs:
+--   node -e "console.log(require('bcryptjs').hashSync(process.env.PW,10))"
+--   -- then, in the Supabase SQL editor (do not commit the hash):
+--   update admin_users set password_hash = '<hash>' where email = 'julie@secondmile.org';
+-- The hash below is bcrypt of a random throwaway value — it matches NO known
+-- password, so this account cannot be logged into until you set a real hash.
 insert into admin_users (name, email, password_hash, role, organization_id)
 values ('Julie', 'julie@secondmile.org',
-        '$2a$10$/3Ps.KOLU8ZjgIcBE8D5guOp0kCGOvyPAGM7BNyb6XUTuwxq9ALRa',
+        '$2a$10$s9GilAWHVpJfK3EDt6.0EOGgQ8F1E0JsvhPSv24M3OLFXEF9sW7pO',
         'admin', '00000000-0000-0000-0000-000000000002')
 on conflict (email) do update set organization_id = '00000000-0000-0000-0000-000000000002';
 

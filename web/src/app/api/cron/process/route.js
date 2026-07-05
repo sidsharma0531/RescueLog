@@ -19,11 +19,13 @@ const MAX_LOGS_PER_RUN = 10;
 // overlap with the dashboard poll / upload drain (photos only move
 // processing -> complete/failed).
 export async function GET(request) {
-  // When CRON_SECRET is set, Vercel sends it as a Bearer token on cron runs.
-  // Enforce it so the endpoint can't be triggered by anyone. If it's unset,
-  // allow the call so the cron still works out of the box.
+  // Vercel sends CRON_SECRET as a Bearer token on cron runs. Fail closed:
+  // if the secret is unset or the header doesn't match, reject — otherwise a
+  // stranger could trigger a full processing sweep (Anthropic vision calls) on
+  // demand. CRON_SECRET MUST be set in the Vercel project env.
   const secret = process.env.CRON_SECRET;
-  if (secret && request.headers.get('authorization') !== `Bearer ${secret}`) {
+  if (!secret || request.headers.get('authorization') !== `Bearer ${secret}`) {
+    if (!secret) console.error('[cron] CRON_SECRET is not set — refusing to run.');
     return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 });
   }
 

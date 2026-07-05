@@ -36,10 +36,10 @@ export async function GET() {
 export async function POST(request) {
   try {
     const body = await request.json().catch(() => ({}));
-    const name = String(body.org_name || body.name || '').trim();
-    const contactName = String(body.contact_name || '').trim();
-    const email = String(body.email || '').trim();
-    const phone = String(body.phone || '').trim();
+    const name = String(body.org_name || body.name || '').trim().slice(0, 200);
+    const contactName = String(body.contact_name || '').trim().slice(0, 200);
+    const email = String(body.email || '').trim().slice(0, 320);
+    const phone = String(body.phone || '').trim().slice(0, 40);
 
     if (!name) {
       return NextResponse.json(
@@ -63,8 +63,9 @@ export async function POST(request) {
 
     return NextResponse.json({ organization: data }, { status: 201 });
   } catch (e) {
+    console.error('[organizations] register failed:', e?.message || e);
     return NextResponse.json(
-      { error: e.message || 'Could not register organization.' },
+      { error: 'Could not register organization.' },
       { status: 500 },
     );
   }

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { supabaseAdmin } from '@/lib/supabase';
-import { getSessionOrgId } from '@/lib/auth';
+import { requireAdmin } from '@/lib/auth';
 import { startOfDay, endOfDay, toDateKey } from '@/lib/dates';
 import { CATEGORY_KEYS, normalizeCategoryKey } from '@/lib/categories';
 
@@ -12,6 +12,11 @@ const round1 = (n) => Math.round(n * 10) / 10;
 // GET /api/dashboard/stats?from=&to= — aggregated numbers for the overview.
 export async function GET(request) {
   try {
+    const session = requireAdmin(cookies());
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 });
+    }
+
     const { searchParams } = new URL(request.url);
     const from = searchParams.get('from');
     const to = searchParams.get('to');
@@ -22,9 +27,8 @@ export async function GET(request) {
     let query = supabaseAdmin
       .from('popup_logs')
       .select('*, location:locations(name)')
-      .order('logged_at', { ascending: false });
-    const orgId = getSessionOrgId(cookies());
-    if (orgId) query = query.eq('organization_id', orgId);
+      .order('logged_at', { ascending: false })
+      .eq('organization_id', session.organization_id);
     if (from) query = query.gte('logged_at', startOfDay(from));
     if (to) query = query.lte('logged_at', endOfDay(to));
 

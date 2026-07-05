@@ -7,7 +7,7 @@ export async function POST(request) {
   try {
     const body = await request.json().catch(() => ({}));
     const organizationId = body.organization_id;
-    const name = String(body.name || '').trim();
+    const name = String(body.name || '').trim().slice(0, 100);
     const pin = String(body.pin || '').trim();
 
     if (!organizationId) {
@@ -79,8 +79,9 @@ export async function POST(request) {
 
     return NextResponse.json({ success: true, driver }, { status: 201 });
   } catch (e) {
+    console.error('[auth/register] failed:', e?.message || e);
     return NextResponse.json(
-      { error: e.message || 'Could not create account.' },
+      { error: 'Could not create account.' },
       { status: 500 },
     );
   }

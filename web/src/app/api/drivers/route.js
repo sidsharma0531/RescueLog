@@ -6,28 +6,34 @@ import { getSessionOrgId } from '@/lib/auth';
 export const dynamic = 'force-dynamic';
 
 // GET /api/drivers?organization_id=X — active drivers in an organization.
-// The mobile login dropdown passes organization_id explicitly; the dashboard
-// calls without it and falls back to the signed-in admin's org, so its driver
-// filter is scoped to that org. Never returns PINs.
+// A signed-in admin is always pinned to their own org (the query param is
+// ignored for them, so one org's dashboard can't enumerate another's roster).
+// The unauthenticated mobile login dropdown must pass organization_id. We never
+// return an unfiltered, all-orgs roster. Never returns PINs.
 export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
     const organizationId =
-      searchParams.get('organization_id') || getSessionOrgId(cookies());
+      getSessionOrgId(cookies()) || searchParams.get('organization_id');
+    if (!organizationId) {
+      return NextResponse.json(
+        { error: 'organization_id is required.' },
+        { status: 400 },
+      );
+    }
 
-    let query = supabaseAdmin
+    const { data, error } = await supabaseAdmin
       .from('drivers')
       .select('id, name')
       .eq('is_active', true)
+      .eq('organization_id', organizationId)
       .order('name');
-    if (organizationId) query = query.eq('organization_id', organizationId);
-
-    const { data, error } = await query;
     if (error) throw error;
     return NextResponse.json({ drivers: data || [] });
   } catch (e) {
+    console.error('[drivers] load failed:', e?.message || e);
     return NextResponse.json(
-      { error: e.message || 'Could not load drivers.' },
+      { error: 'Could not load drivers.' },
       { status: 500 },
     );
   }

@@ -5,20 +5,24 @@ import {
   PHOTO_BUCKET,
   withSignedPhotoUrls,
 } from '@/lib/supabase';
-import { getSessionOrgId } from '@/lib/auth';
+import { requireAdmin } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 
-// True if the signed-in admin's org may not touch this log. A null session org
-// (legacy/unassigned admin) is allowed everything (pre-scoping behavior); a log
-// with no org is treated as shared/legacy and allowed.
+// Fail closed: a log is off-limits unless the caller has an org-scoped session
+// AND the log belongs to exactly that org. (After the multi-org backfill no log
+// has a null org, so this never blocks legitimate access.)
 function blockedByOrg(logOrgId, sessionOrgId) {
-  return !!sessionOrgId && !!logOrgId && logOrgId !== sessionOrgId;
+  return !sessionOrgId || logOrgId !== sessionOrgId;
 }
 
 // GET /api/popups/[id] — one pop-up log with every photo and its AI analysis.
 export async function GET(request, { params }) {
   try {
+    const session = requireAdmin(cookies());
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 });
+    }
     const { id } = params;
 
     const { data: popup, error } = await supabaseAdmin
@@ -27,7 +31,7 @@ export async function GET(request, { params }) {
       .eq('id', id)
       .maybeSingle();
     if (error) throw error;
-    if (!popup || blockedByOrg(popup.organization_id, getSessionOrgId(cookies()))) {
+    if (!popup || blockedByOrg(popup.organization_id, session.organization_id)) {
       return NextResponse.json(
         { error: 'Pop-up log not found.' },
         { status: 404 },
@@ -58,6 +62,10 @@ export async function GET(request, { params }) {
 // location_name_manual) and editing the event time via logged_at.
 export async function PATCH(request, { params }) {
   try {
+    const session = requireAdmin(cookies());
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 });
+    }
     const { id } = params;
     const body = await request.json().catch(() => ({}));
     const update = {};
@@ -112,7 +120,7 @@ export async function PATCH(request, { params }) {
       .select('organization_id')
       .eq('id', id)
       .maybeSingle();
-    if (!existing || blockedByOrg(existing.organization_id, getSessionOrgId(cookies()))) {
+    if (!existing || blockedByOrg(existing.organization_id, session.organization_id)) {
       return NextResponse.json({ error: 'Pop-up log not found.' }, { status: 404 });
     }
 
@@ -143,6 +151,10 @@ export async function PATCH(request, { params }) {
 // cascade), and the underlying storage objects.
 export async function DELETE(request, { params }) {
   try {
+    const session = requireAdmin(cookies());
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 });
+    }
     const { id } = params;
 
     // Org guard before any destructive work, so an admin can't delete another
@@ -152,7 +164,7 @@ export async function DELETE(request, { params }) {
       .select('organization_id')
       .eq('id', id)
       .maybeSingle();
-    if (!existing || blockedByOrg(existing.organization_id, getSessionOrgId(cookies()))) {
+    if (!existing || blockedByOrg(existing.organization_id, session.organization_id)) {
       return NextResponse.json({ error: 'Pop-up log not found.' }, { status: 404 });
     }
 

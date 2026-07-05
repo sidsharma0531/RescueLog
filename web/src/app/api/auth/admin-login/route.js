@@ -64,9 +64,7 @@ export async function POST(request) {
     });
     return res;
   } catch (e) {
-    return NextResponse.json(
-      { error: e.message || 'Login failed.' },
-      { status: 500 },
-    );
+    console.error('[auth/admin-login] failed:', e?.message || e);
+    return NextResponse.json({ error: 'Login failed.' }, { status: 500 });
   }
 }
