@@ -11,7 +11,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import * as api from '../services/api';
-import { getDriver, getOrg, clearDriver } from '../services/storage';
+import { getDriver, getOrg, saveOrg, clearDriver } from '../services/storage';
 import { colors, radius } from '../theme';
 
 const STATUS_COLORS = {
@@ -46,6 +46,27 @@ export default function HomeScreen({ navigation }) {
     }
     setDriver(d);
     setOrg(o);
+
+    // Self-heal the cached capture mode. The org's mode is stored on-device at
+    // org-pick time, so if the server's mode changes (or the pick happened
+    // before the server knew about a mode), the device would be stuck on the
+    // wrong flow forever. Refresh it from the API in the background.
+    if (o?.id) {
+      api
+        .getOrganizations()
+        .then(async (res) => {
+          const fresh = (res.organizations || []).find((x) => x.id === o.id);
+          if (fresh && fresh.capture_mode !== o.capture_mode) {
+            const updated = { ...o, capture_mode: fresh.capture_mode };
+            await saveOrg(updated);
+            setOrg(updated);
+          }
+        })
+        .catch(() => {
+          /* non-critical — keep the cached mode */
+        });
+    }
+
     try {
       const res = await api.getRecentPopups(d.id, 5);
       setRecent(res.popups || []);
