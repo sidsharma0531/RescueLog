@@ -49,7 +49,9 @@ export default function OrgSelectScreen({ navigation }) {
     await saveOrg({
       id: org.id,
       name: org.name,
-      capture_mode: org.capture_mode === 'cart' ? 'cart' : 'popup',
+      capture_mode: ['cart', 'gleaning'].includes(org.capture_mode)
+        ? org.capture_mode
+        : 'popup',
     });
     setPickerOpen(false);
     navigation.replace('Login');

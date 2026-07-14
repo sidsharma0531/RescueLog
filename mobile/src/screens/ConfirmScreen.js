@@ -13,8 +13,8 @@ import { colors, radius } from '../theme';
 
 export default function ConfirmScreen({ navigation, route }) {
   const { popupId, locationName, photoCount, mode } = route.params || {};
-  const isCart = mode === 'cart';
-  const noun = isCart ? 'Cart' : 'Pop-up';
+  const isGleaning = mode === 'gleaning';
+  const noun = mode === 'cart' ? 'Cart' : 'Pop-up';
 
   // Live processing progress. Starts optimistic from the submitted photo count,
   // then tracks the server's real counts as the AI works through the photos.
@@ -66,7 +66,7 @@ export default function ConfirmScreen({ navigation, route }) {
   const failedAll = proc.status === 'failed';
   const total = proc.total || photoCount || 0;
 
-  let title = `${noun} logged!`;
+  let title = isGleaning ? 'Logged!' : `${noun} logged!`;
   let detail = `All ${total} photo${total === 1 ? '' : 's'} analyzed`;
   if (processing) {
     title = 'Submitted!';
@@ -75,7 +75,7 @@ export default function ConfirmScreen({ navigation, route }) {
     title = "Couldn't analyze photos";
     detail = 'The upload saved, but analysis failed. Open the dashboard to retry.';
   } else if (proc.status === 'partial') {
-    title = `${noun} logged`;
+    title = isGleaning ? 'Logged' : `${noun} logged`;
     detail = `${proc.completed} of ${total} analyzed · ${proc.failed} couldn't be read`;
   }
 

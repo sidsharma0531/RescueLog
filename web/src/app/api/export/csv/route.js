@@ -3,7 +3,7 @@ import { cookies } from 'next/headers';
 import { supabaseAdmin } from '@/lib/supabase';
 import { requireAdmin } from '@/lib/auth';
 import { startOfDay, endOfDay } from '@/lib/dates';
-import { CATEGORIES } from '@/lib/categories';
+import { getCategories, profileForMode } from '@/lib/categories';
 import { categorySummaryToFlatRow } from '@/lib/aggregate';
 
 export const dynamic = 'force-dynamic';
@@ -36,15 +36,23 @@ export async function GET(request) {
     const { data: logs, error } = await query;
     if (error) throw error;
 
+    // Category columns follow the admin's org profile (produce categories for
+    // gleaning orgs, the general set otherwise).
+    const profile = profileForMode(session.capture_mode);
+    const categories = getCategories(profile);
+
     const header = [
       'Date',
       'Location',
-      'Driver',
+      'Submitted By',
       'Household ID',
+      'Donor/Source',
+      'Recipient Agency',
+      'Scale Weight (lbs)',
       'Total AI Weight (lbs)',
       'Total Est. Retail Value ($)',
       'Driver Weight (lbs)',
-      ...CATEGORIES.flatMap((c) => [
+      ...categories.flatMap((c) => [
         `${c.label} (lbs)`,
         `${c.label} (%)`,
         `${c.label} (Est. $)`,
@@ -52,19 +60,23 @@ export async function GET(request) {
       'Photo Count',
       'Confidence Score',
       'Status',
+      'Notes',
     ];
 
     const rows = (logs || []).map((p) => {
-      const flat = categorySummaryToFlatRow(p.ai_category_summary);
+      const flat = categorySummaryToFlatRow(p.ai_category_summary, profile);
       return [
         formatDate(p.logged_at),
         p.location?.name || p.location_name_manual || '',
         p.driver?.name || '',
         p.household_id || '',
+        p.donor_source || '',
+        p.recipient_agency || '',
+        numCell(p.scale_weight_lbs),
         numCell(p.ai_total_weight),
         numCell(p.ai_total_value ?? p.ai_category_summary?.total_value_usd),
         numCell(p.driver_weight_estimate),
-        ...CATEGORIES.flatMap((c) => [
+        ...categories.flatMap((c) => [
           flat[`${c.key}_lbs`],
           flat[`${c.key}_pct`],
           flat[`${c.key}_value`],
@@ -72,6 +84,7 @@ export async function GET(request) {
         p.photo_count ?? 0,
         p.ai_category_summary?.overall_confidence ?? '',
         p.status || '',
+        p.notes || '',
       ];
     });
 

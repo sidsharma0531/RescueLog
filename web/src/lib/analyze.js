@@ -3,6 +3,7 @@ import { analyzePopupPhotoFromUrl } from './anthropic';
 import { aggregatePhotoAnalyses } from './aggregate';
 import { applyPriceReferences } from './pricing';
 import { orgIdForLog } from './org';
+import { profileForMode } from './categories';
 
 // SERVER-ONLY. AI pipeline for a pop-up log's photos, processed in small
 // sequential batches. There are NO server-to-server self-calls — those get
@@ -38,10 +39,10 @@ function isRateLimitError(err) {
 }
 
 // Analyze one photo URL, retrying on 429 up to MAX_RETRIES times.
-async function analyzeWithRetry(url) {
+async function analyzeWithRetry(url, profile) {
   for (let attempt = 0; ; attempt += 1) {
     try {
-      return await analyzePopupPhotoFromUrl(url);
+      return await analyzePopupPhotoFromUrl(url, profile);
     } catch (err) {
       if (isRateLimitError(err) && attempt < MAX_RETRIES) {
         await sleep(RETRY_DELAY_MS);
@@ -111,6 +112,7 @@ async function refreshLogSummary(
   driverWeightEstimate,
   organizationId,
   scaleWeightLbs,
+  profile,
   finalize,
 ) {
   const { data: allPhotos } = await supabaseAdmin
@@ -130,6 +132,7 @@ async function refreshLogSummary(
   const summary = aggregatePhotoAnalyses(
     completed.map((p) => applyPriceReferences(p.ai_analysis, priceRefs)),
     driverWeightEstimate,
+    profile,
   );
   applyScaleWeight(summary, scaleWeightLbs);
 
@@ -173,6 +176,10 @@ export async function processPopupBatch(logId) {
     .maybeSingle();
   if (!log) return { remaining: 0, analyzed: 0 };
 
+  // Gleaning logs analyze + aggregate with produce categories; everyone else
+  // keeps the general set. Old rows without a mode default to general.
+  const profile = profileForMode(log.mode);
+
   const { data: batch } = await supabaseAdmin
     .from('popup_photos')
     .select('id, photo_url')
@@ -188,6 +195,7 @@ export async function processPopupBatch(logId) {
       log.driver_weight_estimate,
       log.organization_id,
       log.scale_weight_lbs,
+      profile,
       true,
     );
     return { remaining: 0, analyzed: 0 };
@@ -196,7 +204,7 @@ export async function processPopupBatch(logId) {
   // Analyze each photo independently. allSettled never rejects, so one
   // photo's failure can't stop the others.
   const results = await Promise.allSettled(
-    batch.map((p) => analyzeWithRetry(p.photo_url)),
+    batch.map((p) => analyzeWithRetry(p.photo_url, profile)),
   );
 
   // Persist each outcome; guard each update so a DB hiccup on one row doesn't
@@ -245,6 +253,7 @@ export async function processPopupBatch(logId) {
     log.driver_weight_estimate,
     log.organization_id,
     log.scale_weight_lbs,
+    profile,
     remaining === 0,
   );
   return { remaining, analyzed: batch.length };

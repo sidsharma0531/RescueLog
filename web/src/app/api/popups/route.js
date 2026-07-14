@@ -91,8 +91,12 @@ export async function POST(request) {
     const manualName = body.location_name_manual
       ? String(body.location_name_manual).trim().slice(0, 200)
       : '';
-    const isCart = body.mode === 'cart';
+    // Capture modes: 'popup' (default), 'cart' (Second Mile), 'gleaning'
+    // (Glean Kentucky). Anything unrecognized falls back to popup.
+    const mode = ['cart', 'gleaning'].includes(body.mode) ? body.mode : 'popup';
+    const isCart = mode === 'cart';
     // Cart logs aren't tied to a pop-up site, so they don't require a location.
+    // Gleaning logs use GPS/manual locations exactly like pop-ups.
     if (!isCart && !body.location_id && !manualName) {
       return NextResponse.json(
         { error: 'A location (location_id or location_name_manual) is required.' },
@@ -112,12 +116,13 @@ export async function POST(request) {
       status: 'processing',
       photo_count: 0,
     };
-    // Cart Mode (Second Mile): record the capture mode + the scale weight, which
-    // is the cart's ground-truth total. Only set for cart logs so the pop-up
-    // path is byte-for-byte unchanged — and so it still works on databases
-    // where the Cart Mode columns haven't been migrated in yet.
-    if (isCart) {
-      insert.mode = 'cart';
+    // Non-popup modes record the capture mode + an optional scale weight (the
+    // cart's ground-truth total for Second Mile; an optional override for
+    // gleaning trips). Only set for those logs so the pop-up path is
+    // byte-for-byte unchanged — and so it still works on databases where the
+    // columns haven't been migrated in yet.
+    if (mode !== 'popup') {
+      insert.mode = mode;
       insert.scale_weight_lbs = weightOrNull(body.scale_weight_lbs);
     }
     // Household id (Second Mile per-household tracking). Only added to the
@@ -125,6 +130,14 @@ export async function POST(request) {
     // without one still saves on databases that predate the column.
     if (body.household_id != null && String(body.household_id).trim() !== '') {
       insert.household_id = String(body.household_id).trim().slice(0, 200);
+    }
+    // Donor/source + recipient agency (gleaning trip reporting). Optional,
+    // only added when provided, resilient to the columns not existing yet.
+    if (body.donor_source != null && String(body.donor_source).trim() !== '') {
+      insert.donor_source = String(body.donor_source).trim().slice(0, 200);
+    }
+    if (body.recipient_agency != null && String(body.recipient_agency).trim() !== '') {
+      insert.recipient_agency = String(body.recipient_agency).trim().slice(0, 200);
     }
 
     const { data, error } = await supabaseAdmin

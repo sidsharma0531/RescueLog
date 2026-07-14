@@ -1,7 +1,8 @@
 -- ============================================================
 -- RescueLog migration — run ONCE in the Supabase SQL editor.
--- Brings an existing database up to date with Cart Mode + per-org admin
--- scoping. Idempotent and safe to re-run. (Supersedes the older
+-- Brings an existing database up to date with Cart Mode, per-org admin
+-- scoping, the value feature, and Gleaning mode (Glean Kentucky).
+-- Idempotent and safe to re-run. (Supersedes the older
 -- cart-mode-migration.sql — this includes everything in it.)
 -- ============================================================
 
@@ -11,6 +12,8 @@ alter table popup_logs    add column if not exists mode text default 'popup';
 alter table popup_logs    add column if not exists scale_weight_lbs numeric;
 alter table popup_logs    add column if not exists household_id text;
 alter table popup_logs    add column if not exists ai_total_value numeric;  -- est. retail value
+alter table popup_logs    add column if not exists donor_source text;       -- gleaning: who donated
+alter table popup_logs    add column if not exists recipient_agency text;   -- gleaning: who received
 alter table admin_users   add column if not exists organization_id uuid references organizations(id);
 
 -- Value feature: per-org pinned item prices that override the AI's estimate.
@@ -69,3 +72,25 @@ on conflict (email) do update set organization_id = '00000000-0000-0000-0000-000
 -- Servings'. Without this, scoping would hide pre-org logs from their admins.
 update popup_logs set organization_id = '00000000-0000-0000-0000-000000000001'
 where organization_id is null;
+
+-- 5. Glean Kentucky (Gleaning mode) + demo driver + admin ------
+insert into organizations (id, name, status, capture_mode)
+values ('00000000-0000-0000-0000-000000000003', 'Glean Kentucky', 'approved', 'gleaning')
+on conflict (id) do update set status = 'approved', capture_mode = 'gleaning';
+
+insert into drivers (organization_id, name, pin)
+select '00000000-0000-0000-0000-000000000003', 'Volunteer', '1234'
+where not exists (
+  select 1 from drivers
+  where organization_id = '00000000-0000-0000-0000-000000000003' and name = 'Volunteer'
+);
+
+-- Glean Kentucky admin: Merlin. Same rule as Julie above — the committed hash
+-- is a non-matching placeholder (this is a public repo); set the real one
+-- out-of-band:
+--   update admin_users set password_hash = '<hash>' where email = 'merlin@gleanky.org';
+insert into admin_users (name, email, password_hash, role, organization_id)
+values ('Merlin', 'merlin@gleanky.org',
+        '$2a$10$s9GilAWHVpJfK3EDt6.0EOGgQ8F1E0JsvhPSv24M3OLFXEF9sW7pO',
+        'admin', '00000000-0000-0000-0000-000000000003')
+on conflict (email) do update set organization_id = '00000000-0000-0000-0000-000000000003';

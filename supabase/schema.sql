@@ -133,6 +133,10 @@ alter table popup_logs    add column if not exists household_id text;
 alter table admin_users   add column if not exists organization_id uuid references organizations(id);
 -- Estimated retail value (value feature).
 alter table popup_logs    add column if not exists ai_total_value numeric;
+-- Gleaning trips (Glean Kentucky): who donated the produce and which agency
+-- received it. Optional, dashboard-editable.
+alter table popup_logs    add column if not exists donor_source text;
+alter table popup_logs    add column if not exists recipient_agency text;
 
 -- ---- Row Level Security ----------------------------------------
 -- All app traffic goes through the Next.js API using the service-role
@@ -195,5 +199,24 @@ select '00000000-0000-0000-0000-000000000002', 'Volunteer', '1234'
 where not exists (
   select 1 from drivers
   where organization_id = '00000000-0000-0000-0000-000000000002'
+    and name = 'Volunteer'
+);
+
+-- ---- Seed: gleaning partner ------------------------------------
+-- Glean Kentucky uses Gleaning mode (trip-level produce recovery; the AI
+-- estimates weight from photos with produce-specific categories).
+insert into organizations (id, name, status, capture_mode)
+values ('00000000-0000-0000-0000-000000000003',
+        'Glean Kentucky',
+        'approved',
+        'gleaning')
+on conflict (id) do update set status = 'approved', capture_mode = 'gleaning';
+
+-- Demo driver for Glean Kentucky (login: "Volunteer", PIN 1234).
+insert into drivers (organization_id, name, pin)
+select '00000000-0000-0000-0000-000000000003', 'Volunteer', '1234'
+where not exists (
+  select 1 from drivers
+  where organization_id = '00000000-0000-0000-0000-000000000003'
     and name = 'Volunteer'
 );

@@ -54,7 +54,7 @@ export default function OverviewPage() {
       <div>
         <h1 className="text-xl font-bold text-rescue-ink">Overview</h1>
         <p className="text-sm text-gray-500">
-          {terms.cart ? 'Cart' : 'Pop-up'} rescue activity, last 30 days
+          {terms.overviewSubtitle}
         </p>
       </div>
 
@@ -66,7 +66,7 @@ export default function OverviewPage() {
         <>
           <StatsGrid>
             <StatCard
-              label={`${terms.short} logged`}
+              label={terms.loggedLabel}
               value={formatNumber(stats.total_popups)}
             />
             <StatCard
@@ -110,7 +110,7 @@ export default function OverviewPage() {
           <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
             <div className="mb-3 flex items-center justify-between">
               <h2 className="text-base font-semibold text-rescue-ink">
-                Recent {terms.logWord} logs
+                {terms.recentHeading}
               </h2>
               <a
                 href="/dashboard/popups"

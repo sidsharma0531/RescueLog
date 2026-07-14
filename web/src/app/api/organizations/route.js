@@ -19,7 +19,9 @@ export async function GET() {
     const organizations = (data || []).map((o) => ({
       id: o.id,
       name: o.name,
-      capture_mode: o.capture_mode === 'cart' ? 'cart' : 'popup',
+      capture_mode: ['cart', 'gleaning'].includes(o.capture_mode)
+        ? o.capture_mode
+        : 'popup',
     }));
     return NextResponse.json({ organizations });
   } catch (e) {

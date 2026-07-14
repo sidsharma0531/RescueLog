@@ -3,7 +3,11 @@ import { cookies } from 'next/headers';
 import { supabaseAdmin } from '@/lib/supabase';
 import { requireAdmin } from '@/lib/auth';
 import { startOfDay, endOfDay, toDateKey } from '@/lib/dates';
-import { CATEGORY_KEYS, normalizeCategoryKey } from '@/lib/categories';
+import {
+  getCategoryKeys,
+  normalizeCategoryKey,
+  profileForMode,
+} from '@/lib/categories';
 
 export const dynamic = 'force-dynamic';
 
@@ -16,6 +20,11 @@ export async function GET(request) {
     if (!session) {
       return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 });
     }
+
+    // Category buckets follow the admin's org profile: produce categories for
+    // gleaning orgs, the general set for pop-up/cart orgs.
+    const profile = profileForMode(session.capture_mode);
+    const keys = getCategoryKeys(profile);
 
     const { searchParams } = new URL(request.url);
     const from = searchParams.get('from');
@@ -36,8 +45,8 @@ export async function GET(request) {
     if (error) throw error;
     const popups = data || [];
 
-    const catWeights = Object.fromEntries(CATEGORY_KEYS.map((k) => [k, 0]));
-    const catValues = Object.fromEntries(CATEGORY_KEYS.map((k) => [k, 0]));
+    const catWeights = Object.fromEntries(keys.map((k) => [k, 0]));
+    const catValues = Object.fromEntries(keys.map((k) => [k, 0]));
     const siteWeights = {}; // name -> { weight, count }
     const byDay = {}; // dateKey -> { date, count, weight }
     let totalAiWeight = 0;
@@ -51,8 +60,9 @@ export async function GET(request) {
       totalDriverWeight += Number(p.driver_weight_estimate) || 0;
 
       for (const c of p.ai_category_summary?.categories || []) {
-        catWeights[normalizeCategoryKey(c.name)] += Number(c.weight_lbs) || 0;
-        catValues[normalizeCategoryKey(c.name)] += Number(c.value_usd) || 0;
+        const key = normalizeCategoryKey(c.name, profile);
+        catWeights[key] += Number(c.weight_lbs) || 0;
+        catValues[key] += Number(c.value_usd) || 0;
       }
 
       const site = p.location?.name || p.location_name_manual || 'Unknown site';
@@ -66,9 +76,9 @@ export async function GET(request) {
       byDay[day].weight += Number(p.ai_total_weight) || 0;
     }
 
-    const totalCatWeight = CATEGORY_KEYS.reduce((s, k) => s + catWeights[k], 0);
+    const totalCatWeight = keys.reduce((s, k) => s + catWeights[k], 0);
     const categoryTotals = {};
-    for (const k of CATEGORY_KEYS) {
+    for (const k of keys) {
       categoryTotals[k] = {
         weight_lbs: Math.round(catWeights[k]),
         value_usd: Math.round(catValues[k]),
@@ -78,7 +88,7 @@ export async function GET(request) {
     }
 
     let topKey = null;
-    for (const k of CATEGORY_KEYS) {
+    for (const k of keys) {
       if (catWeights[k] > 0 && (!topKey || catWeights[k] > catWeights[topKey])) {
         topKey = k;
       }

@@ -66,9 +66,12 @@ export default function HomeScreen({ navigation }) {
     clearDriver().then(() => navigation.replace('Login'));
   }
 
-  // Second Mile and other cart orgs see the Cart Log flow; everyone else
-  // keeps the pop-up flow.
+  // The big button follows the org's capture mode: cart orgs (Second Mile) get
+  // the Cart Log flow, gleaning orgs (Glean Kentucky) get the simple "New Log"
+  // trip flow, everyone else keeps the pop-up flow.
   const isCart = org?.capture_mode === 'cart';
+  const isGleaning = org?.capture_mode === 'gleaning';
+  const captureRoute = isCart ? 'CartCapture' : isGleaning ? 'GleaningCapture' : 'Capture';
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -89,7 +92,11 @@ export default function HomeScreen({ navigation }) {
           <View style={styles.flex}>
             <Text style={styles.hi}>Hi, {driver?.name || 'there'}</Text>
             <Text style={styles.sub}>
-              {isCart ? 'Ready to log a cart?' : 'Ready to log a pop-up?'}
+              {isCart
+                ? 'Ready to log a cart?'
+                : isGleaning
+                  ? 'Ready to log a trip?'
+                  : 'Ready to log a pop-up?'}
             </Text>
           </View>
           <TouchableOpacity onPress={handleLogout} hitSlop={hitSlop}>
@@ -99,16 +106,18 @@ export default function HomeScreen({ navigation }) {
 
         <TouchableOpacity
           style={styles.bigButton}
-          onPress={() => navigation.navigate(isCart ? 'CartCapture' : 'Capture')}
+          onPress={() => navigation.navigate(captureRoute)}
           activeOpacity={0.85}
         >
           <Text style={styles.bigButtonText}>
-            {isCart ? 'New Cart Log' : 'New Pop-Up Log'}
+            {isCart ? 'New Cart Log' : isGleaning ? 'New Log' : 'New Pop-Up Log'}
           </Text>
           <Text style={styles.bigButtonSub}>
             {isCart
               ? 'Weigh the cart, then snap a photo of it'
-              : 'Snap photos of the food on the tables'}
+              : isGleaning
+                ? 'Snap photos of the recovered produce'
+                : 'Snap photos of the food on the tables'}
           </Text>
         </TouchableOpacity>
 
@@ -120,7 +129,9 @@ export default function HomeScreen({ navigation }) {
           <Text style={styles.empty}>
             {isCart
               ? 'No carts logged yet. Your submitted carts will show up here.'
-              : 'No logs yet. Your submitted pop-ups will show up here.'}
+              : isGleaning
+                ? 'No logs yet. Your submitted logs will show up here.'
+                : 'No logs yet. Your submitted pop-ups will show up here.'}
           </Text>
         ) : (
           recent.map((p) => (

@@ -108,6 +108,15 @@ export async function PATCH(request, { params }) {
       }
     }
 
+    // Donor/source + recipient agency (gleaning trip reporting). Editable from
+    // the dashboard detail page; empty string or null clears the field.
+    for (const field of ['donor_source', 'recipient_agency']) {
+      if (body[field] !== undefined) {
+        const v = body[field] == null ? '' : String(body[field]).trim();
+        update[field] = v ? v.slice(0, 200) : null;
+      }
+    }
+
     if (Object.keys(update).length === 0) {
       return NextResponse.json(
         { error: 'Nothing to update.' },
@@ -128,7 +137,7 @@ export async function PATCH(request, { params }) {
       .from('popup_logs')
       .update(update)
       .eq('id', id)
-      .select('id, location_name_manual, logged_at, manual_estimate_lbs')
+      .select('*')
       .maybeSingle();
     if (error) throw error;
     if (!data) {

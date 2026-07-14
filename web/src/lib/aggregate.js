@@ -1,4 +1,4 @@
-import { CATEGORIES, CATEGORY_KEYS, normalizeCategoryKey } from './categories';
+import { getCategories, getCategoryKeys, normalizeCategoryKey } from './categories';
 
 const round1 = (n) => Math.round(n * 10) / 10;
 const round2 = (n) => Math.round(n * 100) / 100;
@@ -6,19 +6,23 @@ const round2 = (n) => Math.round(n * 100) / 100;
 // Combine the per-photo AI analyses for one popup log into a single
 // category summary. Cross-photo dedup is simple category-level summation —
 // within-photo dedup is already handled by the vision prompt.
-export function aggregatePhotoAnalyses(analyses, driverEstimateLbs) {
+// `profile` selects the category set ('general' for pop-up/cart orgs,
+// 'produce' for gleaning orgs) and must match the profile the photos were
+// analyzed with, or categories collapse into the catch-all bucket.
+export function aggregatePhotoAnalyses(analyses, driverEstimateLbs, profile = 'general') {
+  const keys = getCategoryKeys(profile);
   const valid = (analyses || []).filter(
     (a) => a && Array.isArray(a.categories),
   );
 
-  const totals = Object.fromEntries(CATEGORY_KEYS.map((k) => [k, 0]));
-  const values = Object.fromEntries(CATEGORY_KEYS.map((k) => [k, 0]));
+  const totals = Object.fromEntries(keys.map((k) => [k, 0]));
+  const values = Object.fromEntries(keys.map((k) => [k, 0]));
   let confidenceSum = 0;
   let confidenceCount = 0;
 
   for (const a of valid) {
     for (const cat of a.categories) {
-      const key = normalizeCategoryKey(cat.name);
+      const key = normalizeCategoryKey(cat.name, profile);
       totals[key] += Number(cat.estimated_weight_lbs) || 0;
       values[key] += Number(cat.estimated_value_usd) || 0;
     }
@@ -28,15 +32,16 @@ export function aggregatePhotoAnalyses(analyses, driverEstimateLbs) {
     }
   }
 
-  const totalWeight = CATEGORY_KEYS.reduce((s, k) => s + totals[k], 0);
-  const totalValue = CATEGORY_KEYS.reduce((s, k) => s + values[k], 0);
+  const totalWeight = keys.reduce((s, k) => s + totals[k], 0);
+  const totalValue = keys.reduce((s, k) => s + values[k], 0);
 
-  const categories = CATEGORIES.map((c) => ({
-    name: c.key,
-    weight_lbs: Math.round(totals[c.key]),
-    value_usd: Math.round(values[c.key]),
-    percentage: totalWeight > 0 ? round1((totals[c.key] / totalWeight) * 100) : 0,
-  }))
+  const categories = getCategories(profile)
+    .map((c) => ({
+      name: c.key,
+      weight_lbs: Math.round(totals[c.key]),
+      value_usd: Math.round(values[c.key]),
+      percentage: totalWeight > 0 ? round1((totals[c.key] / totalWeight) * 100) : 0,
+    }))
     .filter((c) => c.weight_lbs > 0 || c.value_usd > 0)
     .sort((a, b) => b.weight_lbs - a.weight_lbs);
 
@@ -60,16 +65,17 @@ export function aggregatePhotoAnalyses(analyses, driverEstimateLbs) {
 }
 
 // Flatten a popup log's category summary into a flat map of
-// `${key}_lbs` / `${key}_pct` values — used by the CSV exporter.
-export function categorySummaryToFlatRow(summary) {
+// `${key}_lbs` / `${key}_pct` / `${key}_value` values — used by the CSV
+// exporter. Pass the same profile the export's columns are built from.
+export function categorySummaryToFlatRow(summary, profile = 'general') {
   const row = {};
-  for (const k of CATEGORY_KEYS) {
+  for (const k of getCategoryKeys(profile)) {
     row[`${k}_lbs`] = 0;
     row[`${k}_pct`] = 0;
     row[`${k}_value`] = 0;
   }
   for (const c of summary?.categories || []) {
-    const key = normalizeCategoryKey(c.name);
+    const key = normalizeCategoryKey(c.name, profile);
     row[`${key}_lbs`] = c.weight_lbs || 0;
     row[`${key}_pct`] = c.percentage || 0;
     row[`${key}_value`] = c.value_usd || 0;

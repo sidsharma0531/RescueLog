@@ -59,6 +59,13 @@ export default function PopupDetailPage() {
     }
   }
 
+  // Save a gleaning trip field (donor_source / recipient_agency). Empty clears.
+  async function saveTripField(field, value) {
+    const v = String(value || '').trim();
+    await apiPatch(`/api/popups/${id}`, { [field]: v || null });
+    setPopup((p) => ({ ...p, [field]: v || null }));
+  }
+
   // ISO timestamp -> the local "YYYY-MM-DDTHH:mm" a datetime-local input wants.
   function toDateTimeLocal(iso) {
     const d = iso ? new Date(iso) : new Date();
@@ -196,9 +203,9 @@ export default function PopupDetailPage() {
     };
   }, [popup?.status, id]);
 
-  if (loading) return <LoadingBlock label={`Loading ${terms.logWord}…`} />;
+  if (loading) return <LoadingBlock label={terms.loadingLabel} />;
   if (error) return <ErrorBlock message={error} onRetry={load} />;
-  if (!popup) return <ErrorBlock message={`${terms.logTitle} not found.`} />;
+  if (!popup) return <ErrorBlock message={terms.notFoundMsg} />;
 
   // Prefer a manually-saved name so an edit is reflected even when the log
   // is also linked to a GPS location record.
@@ -217,7 +224,11 @@ export default function PopupDetailPage() {
   const hasComparison = comparisonW != null;
   // Cart Mode (Second Mile): the total weight is the scale reading, not an AI
   // estimate — the AI only provides the category breakdown of that weight.
-  const isCart = popup.mode === 'cart' || summary.scale_weight_lbs != null;
+  // Gleaning trips (Glean Kentucky) default to the AI estimate but may carry
+  // an optional scale weight, which also overrides the total when present.
+  const isCart = popup.mode === 'cart';
+  const isGleaning = popup.mode === 'gleaning';
+  const hasScale = isCart || summary.scale_weight_lbs != null;
   let lbDiff = null;
   let pctDiff = null;
   if (hasComparison && aiW != null) {
@@ -234,7 +245,7 @@ export default function PopupDetailPage() {
         href="/dashboard/popups"
         className="text-sm font-medium text-rescue-green hover:underline"
       >
-        ← All {terms.logWord} logs
+        ← {terms.backAllLabel}
       </a>
 
       <div>
@@ -411,18 +422,22 @@ export default function PopupDetailPage() {
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
-                {isCart ? 'Cart weight (scale)' : 'AI estimated weight'}
+                {isCart
+                  ? 'Cart weight (scale)'
+                  : hasScale
+                    ? 'Weight (scale)'
+                    : 'AI estimated weight'}
               </p>
               <p className="mt-1 text-3xl font-bold text-rescue-green">
                 {aiW != null ? formatLbs(aiW) : '—'}
               </p>
-              {isCart && (
+              {hasScale && (
                 <p className="mt-0.5 text-xs text-gray-400">
                   Total from the scale; AI distributed the category breakdown
                 </p>
               )}
             </div>
-            {!addingEstimate && !isCart && (
+            {!addingEstimate && !hasScale && (
               <button
                 onClick={startAddEstimate}
                 className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 transition hover:border-rescue-green hover:text-rescue-green"
@@ -492,6 +507,28 @@ export default function PopupDetailPage() {
         </div>
       )}
 
+      {/* Gleaning trips report who donated and who received. Editable here so
+          admins can fill it in after volunteers submit; shown on any log that
+          already has values. */}
+      {(isGleaning || popup.donor_source || popup.recipient_agency) && (
+        <Card title="Trip details">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <EditableField
+              label="Donor / source"
+              value={popup.donor_source}
+              placeholder="e.g. Smith Family Farm"
+              onSave={(v) => saveTripField('donor_source', v)}
+            />
+            <EditableField
+              label="Recipient agency"
+              value={popup.recipient_agency}
+              placeholder="e.g. County food bank"
+              onSave={(v) => saveTripField('recipient_agency', v)}
+            />
+          </div>
+        </Card>
+      )}
+
       <Card title="AI category breakdown">
         <CategoryChart data={summary.categories} variant="bars" />
         {summary.overall_confidence != null && (
@@ -548,6 +585,82 @@ export default function PopupDetailPage() {
           <p className="mt-2 text-sm text-red-700">{deleteError}</p>
         )}
       </div>
+    </div>
+  );
+}
+
+// Inline-editable text field used for gleaning trip details.
+function EditableField({ label, value, placeholder, onSave }) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState('');
+
+  function start() {
+    setDraft(value || '');
+    setErr('');
+    setEditing(true);
+  }
+
+  async function save() {
+    setSaving(true);
+    setErr('');
+    try {
+      await onSave(draft);
+      setEditing(false);
+    } catch (e) {
+      setErr(e.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div>
+      <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
+        {label}
+      </p>
+      {editing ? (
+        <div className="mt-1.5 flex flex-wrap items-center gap-2">
+          <input
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') save();
+              if (e.key === 'Escape') setEditing(false);
+            }}
+            autoFocus
+            placeholder={placeholder}
+            className="w-56 rounded-lg border border-gray-300 px-3 py-1.5 text-sm outline-none focus:border-rescue-green focus:ring-1 focus:ring-rescue-green"
+          />
+          <button
+            onClick={save}
+            disabled={saving}
+            className="rounded-lg bg-rescue-green px-3 py-1.5 text-sm font-semibold text-white hover:bg-rescue-green-dark disabled:opacity-60"
+          >
+            {saving ? 'Saving…' : 'Save'}
+          </button>
+          <button
+            onClick={() => setEditing(false)}
+            className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-50"
+          >
+            Cancel
+          </button>
+        </div>
+      ) : (
+        <div className="mt-1 flex items-center gap-2">
+          <p className={`text-sm font-medium ${value ? 'text-rescue-ink' : 'text-gray-400'}`}>
+            {value || 'Not set'}
+          </p>
+          <button
+            onClick={start}
+            className="text-sm font-medium text-rescue-green hover:underline"
+          >
+            {value ? 'Edit' : 'Add'}
+          </button>
+        </div>
+      )}
+      {err && <p className="mt-1 text-sm text-red-600">{err}</p>}
     </div>
   );
 }

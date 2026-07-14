@@ -1,7 +1,12 @@
 import Anthropic from '@anthropic-ai/sdk';
-import { CATEGORY_KEYS } from './categories';
+import { CATEGORY_KEYS, getCategoryKeys } from './categories';
 
-// SERVER-ONLY. Claude Vision client + food categorization prompt.
+// SERVER-ONLY. Claude Vision client + food categorization prompts.
+//
+// Two prompt/schema PROFILES, selected by the org's capture mode:
+//   'general' — the calibrated food-category prompt (pop-up + cart orgs).
+//                Its text must not drift; it is tuned against hand-tallies.
+//   'produce' — produce-specific categories for gleaning orgs.
 
 // The plan specified claude-sonnet-4-20250514, which is deprecated (retires
 // 2026-06-15). claude-sonnet-4-6 is the current Sonnet — honors the plan's
@@ -103,10 +108,75 @@ List the item types that make up the bulk of each category — you need not enum
 
 Only include a category in "categories" if items belonging to it are present or reasonably inferred. "total_estimated_weight_lbs" must equal the sum of every category's "estimated_weight_lbs". "total_estimated_value_usd" must equal the sum of every category's "estimated_value_usd". "image_quality" must be "good", "fair", or "poor".`;
 
+// Produce profile — gleaning orgs (trip-level produce recovery). Same
+// estimation framework and output contract as the general prompt, but with
+// produce-specific categories and reference weights.
+const PRODUCE_SYSTEM_PROMPT = `You are a produce inventory analyst for a food rescue organization. You are analyzing photos of surplus produce recovered on a gleaning trip. Your job is to identify produce categories and produce the most ACCURATE possible total weight estimate — one that reflects the FULL amount present, including items that are partially hidden.
+
+CONTEXT:
+- This produce was gleaned from farms, orchards, gardens, markets, or grocery donors and is being photographed before distribution.
+- It may be loose, in field bins, bushel boxes, crates, buckets, bags, or on tables or truck beds.
+- Photos may show one container, many containers, or a whole load.
+
+TASK:
+Analyze the photo and return a single JSON object. Use these exact category strings:
+- "fruit" — apples, pears, peaches, berries, citrus, grapes, bananas, stone fruit
+- "leafy_greens" — lettuce, kale, chard, collards, spinach, cabbage, bok choy
+- "root_vegetables" — potatoes, sweet potatoes, carrots, beets, turnips, radishes, onions, garlic
+- "squash_melons" — zucchini, summer and winter squash, pumpkins, cucumbers, watermelon, cantaloupe
+- "tomatoes_peppers" — tomatoes, peppers, eggplant
+- "mixed_vegetables" — broccoli, cauliflower, corn, green beans, peas, celery, mixed vegetable boxes
+- "herbs" — basil, cilantro, parsley, mint, other fresh herbs
+- "other_produce" — any produce not fitting the categories above
+- "non_produce" — anything that is not fresh produce
+
+ACCOUNT FOR HIDDEN PRODUCE — BUT DO NOT ASSUME MAXIMUM FILL:
+A camera sees mainly the top layer and misses produce packed below or stacked behind. Include a reasonable allowance for that hidden produce — but only where it is clearly implied, and never assume containers are packed to capacity unless they obviously are. The goal is the realistic true total a careful in-person weigh-in would reach, not the maximum conceivable. Specifically:
+- When containers are clearly full, estimate full-container weights from the reference table.
+- When fill is uncertain or containers are partially visible, assume a typical PARTIAL fill (about half to two-thirds) and use the lower end of the reference ranges.
+- When produce extends beyond the frame, estimate only the portion reasonably implied.
+- Dense produce (potatoes, apples, citrus, root vegetables) is modestly heavier than it appears; apply a small, realistic upward adjustment — do not maximize.
+
+WEIGHT REFERENCE TABLE (realistic averages; pick a SINGLE point estimate, not a range; use the lower end when items are obscured or fill is uncertain):
+- Full bushel box, dense produce (apples, potatoes, root veg): 42 lbs | half-bushel: 21 lbs
+- Filled banana/produce box, dense items: 26 lbs | light items (greens, herbs): 15 lbs
+- 5-gallon bucket, dense produce: 25 lbs | light/leafy: 12 lbs
+- Standard grocery bag of mixed produce: 6 lbs
+- Field crate/lug of tomatoes or peppers: 25 lbs
+- Watermelon: 14 lbs each | cantaloupe: 3 lbs | pumpkin: 12 lbs
+- Head of cabbage: 2.5 lbs | head of lettuce: 1 lb | bunch of greens or herbs: 1 lb
+- Clamshell of berries: 1 lb | ear of corn: 0.7 lbs
+
+ESTIMATION RULES:
+- Aim for the realistic true total a careful weigh-in would reach — including clearly-present hidden or stacked produce, but WITHOUT inflating. Do not deliberately underestimate, and do not pad toward the maximum.
+- Pick a single point estimate per category, not a range, for consistency.
+- Round all weights to the nearest whole number.
+
+ESTIMATED RETAIL VALUE (in addition to weight):
+Also estimate the ESTIMATED RETAIL DOLLAR VALUE (USD) of the produce — the price a customer would pay at a typical US grocery store for that item type. Price organic or specialty items higher only when the photo clearly shows it. Be REASONABLE, never inflated — this number goes into grant reports and donor-impact statements and must be defensible. When unsure, price conservatively toward standard retail. Round values to whole dollars.
+
+CONFIDENCE SCORING (0.0 to 1.0) — this reflects your CERTAINTY, and is separate from the weight estimate. Estimate the full weight regardless of confidence; use confidence to express how sure you are:
+- 0.9+ : Produce clearly visible, countable, containers identifiable.
+- 0.7-0.9 : Most items visible, some estimation for stacked or grouped containers.
+- 0.5-0.7 : Significant portions obscured or containers sealed (you still estimate them — just at lower confidence).
+- Below 0.5 : Poor visibility — explain in notes.
+
+In the "notes" field, briefly state what you estimated for hidden/stacked/contained produce so the reasoning is transparent, and flag dense or unclear images.
+
+ITEMIZATION — for each category, break it into the distinct item types you see in the "items" array. Each item is an object with:
+- "name": short item name (e.g. "red potatoes", "heirloom tomatoes", "collard greens")
+- "quantity": estimated number of units or containers of that item
+- "weight_lbs": estimated total weight for that item line
+- "value_usd": ESTIMATED RETAIL VALUE for that item line (quantity × typical unit price, or weight_lbs × per-lb price)
+List the item types that make up the bulk of each category — you need not enumerate every trivial item, but the items should reasonably account for the category's weight and value. Set each category's "estimated_value_usd" to the sum of its items' "value_usd".
+
+Only include a category in "categories" if items belonging to it are present or reasonably inferred. "total_estimated_weight_lbs" must equal the sum of every category's "estimated_weight_lbs". "total_estimated_value_usd" must equal the sum of every category's "estimated_value_usd". "image_quality" must be "good", "fair", or "poor".`;
+
 // JSON Schema for structured output — guarantees a parseable response shape.
+// The category-name enum is the only per-profile difference.
 // Note: numeric range constraints are not supported by structured outputs,
 // so confidence/weight ranges are enforced via the prompt instead.
-const RESPONSE_SCHEMA = {
+const buildResponseSchema = (categoryKeys) => ({
   type: 'object',
   properties: {
     categories: {
@@ -114,7 +184,7 @@ const RESPONSE_SCHEMA = {
       items: {
         type: 'object',
         properties: {
-          name: { type: 'string', enum: CATEGORY_KEYS },
+          name: { type: 'string', enum: categoryKeys },
           items: {
             type: 'array',
             items: {
@@ -162,12 +232,27 @@ const RESPONSE_SCHEMA = {
     'notes',
   ],
   additionalProperties: false,
+});
+
+// Everything that differs between category profiles, in one place.
+const PROMPT_PROFILES = {
+  general: {
+    prompt: SYSTEM_PROMPT,
+    schema: buildResponseSchema(CATEGORY_KEYS),
+    ask: 'Analyze this photo of rescued food at a Pop-Up Grocery Store and return the JSON object.',
+  },
+  produce: {
+    prompt: PRODUCE_SYSTEM_PROMPT,
+    schema: buildResponseSchema(getCategoryKeys('produce')),
+    ask: 'Analyze this photo of produce recovered on a gleaning trip and return the JSON object.',
+  },
 };
 
 // Run the vision request for a single image source and return the parsed
 // analysis. `imageSource` is a Claude image-source object — either
 // { type: 'base64', media_type, data } or { type: 'url', url }.
-async function runAnalysis(imageSource) {
+async function runAnalysis(imageSource, profile = 'general') {
+  const p = PROMPT_PROFILES[profile] || PROMPT_PROFILES.general;
   const response = await client.messages.create({
     model: MODEL,
     // Headroom for the per-item itemization (name/quantity/weight/value per
@@ -177,23 +262,20 @@ async function runAnalysis(imageSource) {
     // photo. (Vision estimation is never perfectly reproducible, but
     // temperature 0 removes the largest source of variance.)
     temperature: 0,
-    // System prompt is identical on every photo — cache it. (Caching only
-    // kicks in above the model's minimum prefix length; harmless otherwise.)
+    // System prompt is identical on every photo per profile — cache it.
+    // (Caching only kicks in above the model's minimum prefix length.)
     system: [
-      { type: 'text', text: SYSTEM_PROMPT, cache_control: { type: 'ephemeral' } },
+      { type: 'text', text: p.prompt, cache_control: { type: 'ephemeral' } },
     ],
     output_config: {
-      format: { type: 'json_schema', schema: RESPONSE_SCHEMA },
+      format: { type: 'json_schema', schema: p.schema },
     },
     messages: [
       {
         role: 'user',
         content: [
           { type: 'image', source: imageSource },
-          {
-            type: 'text',
-            text: 'Analyze this photo of rescued food at a Pop-Up Grocery Store and return the JSON object.',
-          },
+          { type: 'text', text: p.ask },
         ],
       },
     ],
@@ -212,15 +294,15 @@ async function runAnalysis(imageSource) {
 }
 
 // Analyze one photo from base64 bytes. Returns the parsed AI analysis.
-export async function analyzePopupPhoto(photoBase64, mimeType = 'image/jpeg') {
-  return runAnalysis({ type: 'base64', media_type: mimeType, data: photoBase64 });
+export async function analyzePopupPhoto(photoBase64, mimeType = 'image/jpeg', profile = 'general') {
+  return runAnalysis({ type: 'base64', media_type: mimeType, data: photoBase64 }, profile);
 }
 
 // Analyze one photo from a public URL. The mobile app now uploads photos
 // straight to Supabase Storage and sends us the URLs, so Claude Vision
 // fetches the image itself — no base64 round-trip through our API.
-export async function analyzePopupPhotoFromUrl(imageUrl) {
-  return runAnalysis({ type: 'url', url: imageUrl });
+export async function analyzePopupPhotoFromUrl(imageUrl, profile = 'general') {
+  return runAnalysis({ type: 'url', url: imageUrl }, profile);
 }
 
 // Parse + normalize the model output. Structured outputs guarantee valid

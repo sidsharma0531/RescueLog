@@ -57,7 +57,7 @@ export default function PopupsListPage() {
   return (
     <div className="space-y-5">
       <div>
-        <h1 className="text-xl font-bold text-rescue-ink">{terms.logTitlePlural}</h1>
+        <h1 className="text-xl font-bold text-rescue-ink">{terms.navLabel}</h1>
         <p className="text-sm text-gray-500">
           {loading ? 'Loading…' : `${popups.length} log${popups.length === 1 ? '' : 's'} in range`}
         </p>

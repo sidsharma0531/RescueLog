@@ -22,7 +22,7 @@ export default function Sidebar({ adminName }) {
   // Cart-mode orgs see "Cart Logs" in place of "Pop-Up Logs".
   const navItems = NAV.map((item) =>
     item.href === '/dashboard/popups'
-      ? { ...item, label: terms.logTitlePlural }
+      ? { ...item, label: terms.navLabel }
       : item,
   );
 

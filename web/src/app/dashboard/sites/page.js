@@ -11,13 +11,17 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 import { apiGet } from '@/lib/api-client';
-import { CATEGORY_KEYS, normalizeCategoryKey } from '@/lib/categories';
+import {
+  getCategoryKeys,
+  normalizeCategoryKey,
+  profileForMode,
+} from '@/lib/categories';
 import { formatDate, formatLbs, formatNumber } from '@/lib/format';
 import Card from '@/components/Card';
 import CategoryChart from '@/components/CategoryChart';
 import PopupsTable from '@/components/PopupsTable';
 import { LoadingBlock, ErrorBlock } from '@/components/Loading';
-import { useTerms } from '@/components/OrgMode';
+import { useCaptureMode, useTerms } from '@/components/OrgMode';
 
 // A log's effective site name: its linked location, else the manual name.
 function siteNameOf(p) {
@@ -26,6 +30,9 @@ function siteNameOf(p) {
 
 export default function SitesPage() {
   const terms = useTerms();
+  // Category buckets follow the org's profile (produce set for gleaning orgs).
+  const profile = profileForMode(useCaptureMode());
+  const categoryKeys = getCategoryKeys(profile);
   const [allPopups, setAllPopups] = useState([]);
   const [siteName, setSiteName] = useState('');
   const [loading, setLoading] = useState(true);
@@ -72,17 +79,17 @@ export default function SitesPage() {
     [allPopups, siteName],
   );
 
-  // Aggregate the category mix across this site's pop-ups.
-  const catTotals = Object.fromEntries(CATEGORY_KEYS.map((k) => [k, 0]));
+  // Aggregate the category mix across this site's logs.
+  const catTotals = Object.fromEntries(categoryKeys.map((k) => [k, 0]));
   let siteTotalWeight = 0;
   for (const p of popups) {
     siteTotalWeight += Number(p.ai_total_weight) || 0;
     for (const c of p.ai_category_summary?.categories || []) {
-      catTotals[normalizeCategoryKey(c.name)] += Number(c.weight_lbs) || 0;
+      catTotals[normalizeCategoryKey(c.name, profile)] += Number(c.weight_lbs) || 0;
     }
   }
-  const totalCat = CATEGORY_KEYS.reduce((s, k) => s + catTotals[k], 0);
-  const categoryData = CATEGORY_KEYS.map((k) => ({
+  const totalCat = categoryKeys.reduce((s, k) => s + catTotals[k], 0);
+  const categoryData = categoryKeys.map((k) => ({
     name: k,
     weight_lbs: Math.round(catTotals[k]),
     percentage: totalCat > 0 ? Math.round((catTotals[k] / totalCat) * 1000) / 10 : 0,
@@ -105,7 +112,7 @@ export default function SitesPage() {
       <div>
         <h1 className="text-xl font-bold text-rescue-ink">Site Analytics</h1>
         <p className="text-sm text-gray-500">
-          {terms.cart ? 'Cart' : 'Pop-up'} rescue history for a single location
+          {terms.sitesSubtitle}
         </p>
       </div>
 
@@ -136,27 +143,27 @@ export default function SitesPage() {
       ) : sites.length === 0 ? (
         <Card>
           <p className="text-sm text-gray-400">
-            No sites with logged {terms.logWordPlural} yet.
+            {terms.noSitesMsg}
           </p>
         </Card>
       ) : popups.length === 0 ? (
         <Card>
           <p className="text-sm text-gray-400">
-            No {terms.logWord} logs at this site yet.
+            {terms.noSiteLogsMsg}
           </p>
         </Card>
       ) : (
         <>
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
-            <MiniStat label={terms.short} value={formatNumber(popups.length)} />
+            <MiniStat label={terms.siteCountLabel} value={formatNumber(popups.length)} />
             <MiniStat
               label="Total rescued"
               value={formatLbs(Math.round(siteTotalWeight))}
             />
-            <MiniStat label={`Avg per ${terms.logWord}`} value={formatLbs(avgWeight)} />
+            <MiniStat label={terms.avgPerLabel} value={formatLbs(avgWeight)} />
           </div>
 
-          <Card title={`Weight rescued per ${terms.logWord}`}>
+          <Card title={terms.weightPerHeading}>
             <div className="h-64 w-full">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart
@@ -186,7 +193,7 @@ export default function SitesPage() {
             <CategoryChart data={categoryData} variant="donut" />
           </Card>
 
-          <Card title={`All ${terms.logWord} logs at this site`}>
+          <Card title={terms.allAtSiteHeading}>
             <PopupsTable popups={popups} />
           </Card>
         </>

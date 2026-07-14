@@ -7,6 +7,7 @@ const { supabase } = require('./_client');
 // drivers belong to that organization.
 const ORG_ID = '00000000-0000-0000-0000-000000000001';      // Second Servings
 const SECOND_MILE_ID = '00000000-0000-0000-0000-000000000002';
+const GLEAN_KY_ID = '00000000-0000-0000-0000-000000000003';
 
 const DRIVERS = [
   { name: 'Greg', pin: '1234' },
@@ -20,6 +21,7 @@ const ADMINS = [
   { name: 'Lisa', email: 'lisa@secondservings.org', organization_id: ORG_ID },
   { name: 'Barbara', email: 'barbara@secondservings.org', organization_id: ORG_ID },
   { name: 'Julie', email: 'julie@secondmile.org', organization_id: SECOND_MILE_ID },
+  { name: 'Merlin', email: 'merlin@gleanky.org', organization_id: GLEAN_KY_ID },
 ];
 
 const ADMIN_PASSWORD = 'rescue123';

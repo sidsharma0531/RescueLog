@@ -3,14 +3,15 @@
 import { useCallback, useEffect, useState } from 'react';
 import { apiGet } from '@/lib/api-client';
 import { daysAgoISO, todayISO } from '@/lib/dates';
-import { CATEGORIES } from '@/lib/categories';
+import { getCategories, profileForMode } from '@/lib/categories';
 import FilterBar from '@/components/FilterBar';
 import Card from '@/components/Card';
 import ExportButton from '@/components/ExportButton';
-import { useTerms } from '@/components/OrgMode';
+import { useCaptureMode, useTerms } from '@/components/OrgMode';
 
 export default function ExportPage() {
   const terms = useTerms();
+  const categories = getCategories(profileForMode(useCaptureMode()));
   const [filters, setFilters] = useState({
     from: daysAgoISO(30),
     to: todayISO(),
@@ -50,15 +51,19 @@ export default function ExportPage() {
   const columnChips = [
     'Date',
     'Location',
-    'Driver',
+    'Submitted By',
     'Household ID',
+    'Donor/Source',
+    'Recipient Agency',
+    'Scale Weight',
     'Total AI Weight',
     'Total Est. Value',
     'Driver Weight',
-    ...CATEGORIES.flatMap((c) => [`${c.label} lbs`, `${c.label} %`, `${c.label} $`]),
+    ...categories.flatMap((c) => [`${c.label} lbs`, `${c.label} %`, `${c.label} $`]),
     'Photo Count',
     'Confidence',
     'Status',
+    'Notes',
   ];
 
   return (
@@ -66,7 +71,7 @@ export default function ExportPage() {
       <div>
         <h1 className="text-xl font-bold text-rescue-ink">Export</h1>
         <p className="text-sm text-gray-500">
-          Download {terms.logWord} data as a CSV — built to paste into existing
+          Download {terms.downloadNoun} data as a CSV — built to paste into existing
           Excel grant workbooks.
         </p>
       </div>
@@ -83,11 +88,11 @@ export default function ExportPage() {
           <div>
             <p className="text-sm text-gray-600">
               {count == null
-                ? `Counting matching ${terms.logWordPlural}…`
-                : `${count} ${terms.logWord} log${count === 1 ? '' : 's'} match the current filters.`}
+                ? terms.countingMsg
+                : `${count} ${terms.countNoun}${count === 1 ? '' : 's'} match the current filters.`}
             </p>
             <p className="mt-0.5 text-xs text-gray-400">
-              One row per {terms.logWord}, with per-category pounds,
+              One row per {terms.rowPerNoun}, with per-category pounds,
               percentages, and estimated retail value.
             </p>
           </div>
