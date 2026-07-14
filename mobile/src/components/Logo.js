@@ -1,38 +1,17 @@
-import { View, StyleSheet } from 'react-native';
-import { colors } from '../theme';
+import { Image } from 'react-native';
 
-// Reusable brand mark — green rounded square with a stylized leaf shape.
+// The real RescueLog mark — the exact same asset as the iOS/Android app icon
+// (assets/icon.png), so the in-app logo always matches the home-screen icon
+// and the dashboard branding. Same `size` prop API as before, so call sites
+// are unchanged; corner radius matches the app-icon look.
+const ICON = require('../../assets/icon.png');
+
 export default function Logo({ size = 60 }) {
-  const inner = Math.round(size * 0.43);
-  const innerRadius = Math.round(size * 0.27);
-  const outerRadius = Math.round(size * 0.27);
   return (
-    <View
-      style={[
-        styles.mark,
-        { width: size, height: size, borderRadius: outerRadius },
-      ]}
-    >
-      <View
-        style={[
-          styles.leaf,
-          {
-            width: inner,
-            height: inner,
-            borderTopLeftRadius: innerRadius,
-            borderBottomRightRadius: innerRadius,
-          },
-        ]}
-      />
-    </View>
+    <Image
+      source={ICON}
+      style={{ width: size, height: size, borderRadius: Math.round(size * 0.24) }}
+      accessibilityIgnoresInvertColors
+    />
   );
 }
-
-const styles = StyleSheet.create({
-  mark: {
-    backgroundColor: colors.green,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  leaf: { backgroundColor: colors.white },
-});
