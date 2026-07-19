@@ -40,10 +40,24 @@ export async function POST(request) {
       );
     }
 
+    // Explicit master flag from the DB column. select('*') keeps this resilient
+    // before the is_super_admin migration runs (undefined -> not super).
+    const isSuper = admin.is_super_admin === true;
+
+    // A regular admin without an org would mint a session every data route
+    // rejects; refuse the login outright instead of half-working.
+    if (!isSuper && !admin.organization_id) {
+      return NextResponse.json(
+        { error: 'Invalid email or password.' },
+        { status: 401 },
+      );
+    }
+
     // Resolve the org's capture mode so the dashboard can show the right
     // terminology (pop-up / cart / gleaning) and category profile. select('*')
-    // keeps this resilient if capture_mode is absent.
-    if (admin.organization_id) {
+    // keeps this resilient if capture_mode is absent. Supers resolve their
+    // view (all orgs or a picked org) per-request instead.
+    if (!isSuper && admin.organization_id) {
       const { data: org } = await supabaseAdmin
         .from('organizations')
         .select('*')

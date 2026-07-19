@@ -1,8 +1,9 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { apiPost } from '@/lib/api-client';
+import { apiGet, apiPost } from '@/lib/api-client';
 import Logo from './Logo';
 import { useTerms } from './OrgMode';
 
@@ -14,12 +15,58 @@ const NAV = [
   { href: '/dashboard/export', label: 'Export' },
 ];
 
-export default function Sidebar({ adminName }) {
+// Org switcher shown only to super admins: "All Orgs" or drill into one org.
+// Switching sets an httpOnly cookie server-side, then fully reloads so every
+// server component and client fetch re-runs under the new scope.
+function OrgSwitcher({ currentOrgId }) {
+  const [orgs, setOrgs] = useState([]);
+  const [switching, setSwitching] = useState(false);
+
+  useEffect(() => {
+    apiGet('/api/super/orgs')
+      .then((d) => setOrgs(d.organizations || []))
+      .catch(() => {});
+  }, []);
+
+  async function switchOrg(orgId) {
+    setSwitching(true);
+    try {
+      await apiPost('/api/super/org', { organization_id: orgId });
+      window.location.reload();
+    } catch {
+      setSwitching(false);
+    }
+  }
+
+  return (
+    <div className="px-1 pb-1">
+      <label className="block px-2 pb-1 text-[11px] font-bold uppercase tracking-wide text-rescue-orange">
+        Master view
+      </label>
+      <select
+        value={currentOrgId || ''}
+        onChange={(e) => switchOrg(e.target.value)}
+        disabled={switching}
+        className="w-full rounded-lg border border-gray-300 px-2.5 py-2 text-sm font-medium text-rescue-ink outline-none focus:border-rescue-green focus:ring-1 focus:ring-rescue-green disabled:opacity-60"
+      >
+        <option value="">All Orgs</option>
+        {orgs.map((o) => (
+          <option key={o.id} value={o.id}>
+            {o.name}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+}
+
+export default function Sidebar({ adminName, superAdmin = false, currentOrgId = null }) {
   const pathname = usePathname();
   const router = useRouter();
   const terms = useTerms();
 
-  // Cart-mode orgs see "Cart Logs" in place of "Pop-Up Logs".
+  // Terminology follows the effective capture mode (org's own, or neutral
+  // "Logs" in the super admin's all-orgs view).
   const navItems = NAV.map((item) =>
     item.href === '/dashboard/popups'
       ? { ...item, label: terms.navLabel }
@@ -47,6 +94,11 @@ export default function Sidebar({ adminName }) {
           <Logo size={36} />
           <span className="text-lg font-bold text-rescue-ink">RescueLog</span>
         </div>
+        {superAdmin && (
+          <div className="px-3 pb-3">
+            <OrgSwitcher currentOrgId={currentOrgId} />
+          </div>
+        )}
         <nav className="flex-1 space-y-1 px-3">
           {navItems.map((item) => (
             <Link
@@ -91,6 +143,11 @@ export default function Sidebar({ adminName }) {
             Sign out
           </button>
         </div>
+        {superAdmin && (
+          <div className="px-3 pb-2">
+            <OrgSwitcher currentOrgId={currentOrgId} />
+          </div>
+        )}
         <nav className="thin-scroll flex gap-1 overflow-x-auto px-3 pb-2">
           {navItems.map((item) => (
             <Link

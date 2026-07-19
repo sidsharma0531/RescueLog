@@ -15,6 +15,7 @@ alter table popup_logs    add column if not exists ai_total_value numeric;  -- e
 alter table popup_logs    add column if not exists donor_source text;       -- gleaning: who donated
 alter table popup_logs    add column if not exists recipient_agency text;   -- gleaning: who received
 alter table admin_users   add column if not exists organization_id uuid references organizations(id);
+alter table admin_users   add column if not exists is_super_admin boolean default false;
 
 -- Value feature: per-org pinned item prices that override the AI's estimate.
 create table if not exists price_references (
@@ -94,3 +95,12 @@ values ('Merlin', 'merlin@gleanky.org',
         '$2a$10$s9GilAWHVpJfK3EDt6.0EOGgQ8F1E0JsvhPSv24M3OLFXEF9sW7pO',
         'admin', '00000000-0000-0000-0000-000000000003')
 on conflict (email) do update set organization_id = '00000000-0000-0000-0000-000000000003';
+
+-- 6. Super admin (master) account ------------------------------
+-- Sees every org's data via an EXPLICIT flag; no organization_id. Placeholder
+-- hash as above — set the real password hash out-of-band.
+insert into admin_users (name, email, password_hash, role, organization_id, is_super_admin)
+values ('Sid', 'sidsharma2027@gmail.com',
+        '$2a$10$s9GilAWHVpJfK3EDt6.0EOGgQ8F1E0JsvhPSv24M3OLFXEF9sW7pO',
+        'admin', null, true)
+on conflict (email) do update set is_super_admin = true, organization_id = null;

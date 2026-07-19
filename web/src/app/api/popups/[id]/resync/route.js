@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { waitUntil } from '@vercel/functions';
 import { supabaseAdmin, PHOTO_BUCKET } from '@/lib/supabase';
-import { requireAdmin } from '@/lib/auth';
+import { getScope } from '@/lib/auth';
 import { drainBatches } from '@/lib/analyze';
 
 export const dynamic = 'force-dynamic';
@@ -23,8 +23,8 @@ function runInBackground(promise) {
 // when nothing is missing. Admin-only, scoped to the admin's own org.
 export async function POST(request, { params }) {
   try {
-    const session = requireAdmin(cookies());
-    if (!session) {
+    const scope = getScope(cookies());
+    if (!scope) {
       return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 });
     }
     const { id: logId } = params;
@@ -35,7 +35,8 @@ export async function POST(request, { params }) {
       .eq('id', logId)
       .maybeSingle();
     if (logErr) throw logErr;
-    if (!log || log.organization_id !== session.organization_id) {
+    // Own org only for regular admins; supers may re-sync any org's log.
+    if (!log || (!scope.superAdmin && log.organization_id !== scope.orgId)) {
       return NextResponse.json({ error: 'Pop-up log not found.' }, { status: 404 });
     }
 

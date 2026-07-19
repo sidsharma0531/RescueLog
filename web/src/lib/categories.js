@@ -34,11 +34,18 @@ export const PRODUCE_CATEGORIES = [
 export const CATEGORY_PROFILES = {
   general: CATEGORIES,
   produce: PRODUCE_CATEGORIES,
+  // Cross-org aggregation (super admin "All Orgs" view): every category from
+  // every profile, so pop-up/cart logs and gleaning logs sum side by side
+  // without colliding. Keys are globally unique across profiles.
+  union: [...CATEGORIES, ...PRODUCE_CATEGORIES],
 };
 
-// Which category profile an org's capture mode uses.
+// Which category profile a capture mode uses. 'all' is the super admin's
+// virtual all-orgs mode.
 export function profileForMode(captureMode) {
-  return captureMode === 'gleaning' ? 'produce' : 'general';
+  if (captureMode === 'gleaning') return 'produce';
+  if (captureMode === 'all') return 'union';
+  return 'general';
 }
 
 export function getCategories(profile = 'general') {
@@ -77,6 +84,7 @@ export function categoryColor(key) {
 export function normalizeCategoryKey(name, profile = 'general') {
   const keys = getCategoryKeys(profile);
   const fallback = profile === 'produce' ? 'non_produce' : 'other';
+  // ('union' falls back to general's catch-all 'other', which it contains.)
   if (!name) return fallback;
   const k = String(name).toLowerCase().trim().replace(/[\s/&-]+/g, '_');
   return keys.includes(k) ? k : fallback;

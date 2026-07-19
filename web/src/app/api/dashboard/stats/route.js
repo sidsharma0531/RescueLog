@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { supabaseAdmin } from '@/lib/supabase';
-import { requireAdmin } from '@/lib/auth';
+import { getScope } from '@/lib/auth';
+import { captureModeForScope } from '@/lib/orgmode';
 import { startOfDay, endOfDay, toDateKey } from '@/lib/dates';
 import {
   getCategoryKeys,
@@ -16,14 +17,16 @@ const round1 = (n) => Math.round(n * 10) / 10;
 // GET /api/dashboard/stats?from=&to= — aggregated numbers for the overview.
 export async function GET(request) {
   try {
-    const session = requireAdmin(cookies());
-    if (!session) {
+    const scope = getScope(cookies());
+    if (!scope) {
       return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 });
     }
 
-    // Category buckets follow the admin's org profile: produce categories for
-    // gleaning orgs, the general set for pop-up/cart orgs.
-    const profile = profileForMode(session.capture_mode);
+    // Category buckets follow the request scope's profile: produce categories
+    // for gleaning orgs, the general set for pop-up/cart orgs, and the UNION
+    // of all category sets for the super admin's all-orgs aggregate (so
+    // mixed-mode data sums without collisions or crashes).
+    const profile = profileForMode(await captureModeForScope(scope));
     const keys = getCategoryKeys(profile);
 
     const { searchParams } = new URL(request.url);
@@ -36,8 +39,10 @@ export async function GET(request) {
     let query = supabaseAdmin
       .from('popup_logs')
       .select('*, location:locations(name)')
-      .order('logged_at', { ascending: false })
-      .eq('organization_id', session.organization_id);
+      .order('logged_at', { ascending: false });
+    // Org filter: always for regular admins; skipped only in the super
+    // admin's all-orgs view.
+    if (scope.orgId) query = query.eq('organization_id', scope.orgId);
     if (from) query = query.gte('logged_at', startOfDay(from));
     if (to) query = query.lte('logged_at', endOfDay(to));
 
@@ -52,12 +57,16 @@ export async function GET(request) {
     let totalAiWeight = 0;
     let totalAiValue = 0;
     let totalDriverWeight = 0;
+    let totalPhotos = 0;
+    const orgIds = new Set();
 
     for (const p of popups) {
       totalAiWeight += Number(p.ai_total_weight) || 0;
       totalAiValue +=
         Number(p.ai_total_value ?? p.ai_category_summary?.total_value_usd) || 0;
       totalDriverWeight += Number(p.driver_weight_estimate) || 0;
+      totalPhotos += Number(p.photo_count) || 0;
+      if (p.organization_id) orgIds.add(p.organization_id);
 
       for (const c of p.ai_category_summary?.categories || []) {
         const key = normalizeCategoryKey(c.name, profile);
@@ -99,6 +108,9 @@ export async function GET(request) {
       total_ai_weight_lbs: Math.round(totalAiWeight),
       total_est_value_usd: Math.round(totalAiValue),
       total_driver_weight_lbs: Math.round(totalDriverWeight),
+      total_photos: totalPhotos,
+      // Only meaningful (and only rendered) in the all-orgs aggregate view.
+      organizations: scope.allOrgs ? orgIds.size : null,
       unique_sites: Object.keys(siteWeights).length,
       category_totals: categoryTotals,
       top_category: topKey ? { key: topKey, ...categoryTotals[topKey] } : null,

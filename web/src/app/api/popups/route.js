@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { supabaseAdmin } from '@/lib/supabase';
-import { requireAdmin } from '@/lib/auth';
+import { getScope } from '@/lib/auth';
 import { startOfDay, endOfDay } from '@/lib/dates';
 
 export const dynamic = 'force-dynamic';
@@ -23,19 +23,23 @@ export async function GET(request) {
       .order('logged_at', { ascending: false })
       .limit(limit);
 
-    // Two authorized shapes, fail closed on everything else:
+    // Authorized shapes, fail closed on everything else:
     //  - Dashboard admin: scoped to the admin's org (never all-orgs).
+    //  - Super admin: their picked org, or all orgs (scope.allOrgs) — the only
+    //    path that may skip the org filter, gated on the explicit flag.
     //  - Mobile driver home screen: only that driver's OWN logs, via driver_id.
     //    (No admin token exists on the phone; this is bounded to a single
     //    driver's own data. Fully closing it needs a real mobile session.)
-    const session = requireAdmin(cookies());
-    if (session) {
-      query = query.eq('organization_id', session.organization_id);
+    const scope = getScope(cookies());
+    if (scope) {
+      if (scope.orgId) query = query.eq('organization_id', scope.orgId);
+      // else: super admin all-orgs view — intentionally unfiltered.
     } else if (driverId) {
       query = query.eq('driver_id', driverId);
     } else {
       return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 });
     }
+    const session = scope?.session || null;
 
     const from = searchParams.get('from');
     const to = searchParams.get('to');

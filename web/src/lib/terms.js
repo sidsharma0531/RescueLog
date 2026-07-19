@@ -48,6 +48,29 @@ const TERMS = {
     countNoun: 'cart log',
     rowPerNoun: 'cart',
   },
+  // Super admin "All Orgs" view: neutral wording that covers pop-ups, carts,
+  // and gleaning trips at once.
+  all: {
+    navLabel: 'Logs',
+    overviewSubtitle: 'Rescue activity across all organizations, last 30 days',
+    loggedLabel: 'Logs recorded',
+    recentHeading: 'Recent logs (all organizations)',
+    loadingLabel: 'Loading log…',
+    notFoundMsg: 'Log not found.',
+    backAllLabel: 'All logs',
+    emptyTableMsg: 'No logs yet.',
+    sitesSubtitle: 'Rescue history for a single location, all organizations',
+    noSitesMsg: 'No sites with logs yet.',
+    noSiteLogsMsg: 'No logs at this site yet.',
+    siteCountLabel: 'Logs',
+    avgPerLabel: 'Avg per log',
+    weightPerHeading: 'Weight rescued per log',
+    allAtSiteHeading: 'All logs at this site',
+    downloadNoun: 'log',
+    countingMsg: 'Counting matching logs…',
+    countNoun: 'log',
+    rowPerNoun: 'log',
+  },
   gleaning: {
     navLabel: 'Logs',
     overviewSubtitle: 'Rescue activity, last 30 days',
@@ -72,6 +95,8 @@ const TERMS = {
 };
 
 export function getTerms(captureMode) {
-  const mode = ['cart', 'gleaning'].includes(captureMode) ? captureMode : 'popup';
+  const mode = ['cart', 'gleaning', 'all'].includes(captureMode)
+    ? captureMode
+    : 'popup';
   return { mode, cart: mode === 'cart', gleaning: mode === 'gleaning', ...TERMS[mode] };
 }

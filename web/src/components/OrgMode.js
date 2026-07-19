@@ -10,7 +10,10 @@ import { getTerms } from '@/lib/terms';
 const CaptureModeContext = createContext('popup');
 
 export function OrgModeProvider({ captureMode, children }) {
-  const mode = ['cart', 'gleaning'].includes(captureMode) ? captureMode : 'popup';
+  // 'all' is the super admin's aggregate view (neutral terms, union categories).
+  const mode = ['cart', 'gleaning', 'all'].includes(captureMode)
+    ? captureMode
+    : 'popup';
   return (
     <CaptureModeContext.Provider value={mode}>
       {children}

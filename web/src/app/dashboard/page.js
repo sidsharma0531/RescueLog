@@ -79,6 +79,18 @@ export default function OverviewPage() {
               value={formatUsd(stats.total_est_value_usd)}
               sub="AI estimated"
             />
+            <StatCard
+              label="Photos analyzed"
+              value={formatNumber(stats.total_photos)}
+            />
+            {stats.organizations != null && (
+              <StatCard
+                label="Organizations"
+                accent="orange"
+                value={formatNumber(stats.organizations)}
+                sub="Contributing data"
+              />
+            )}
             <StatCard label="Sites served" value={formatNumber(stats.unique_sites)} />
             <StatCard
               label="Top category"

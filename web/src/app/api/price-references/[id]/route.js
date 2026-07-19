@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { supabaseAdmin } from '@/lib/supabase';
-import { requireAdmin } from '@/lib/auth';
+import { getScope } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 
@@ -10,9 +10,16 @@ const UNITS = ['per_unit', 'per_lb'];
 // PATCH /api/price-references/[id] — edit a pinned item price.
 export async function PATCH(request, { params }) {
   try {
-    const session = requireAdmin(cookies());
-    if (!session) {
+    const scope = getScope(cookies());
+    if (!scope) {
       return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 });
+    }
+    // Pricing is inherently per-org: a super admin must pick an org first.
+    if (!scope.orgId) {
+      return NextResponse.json(
+        { error: 'Select an organization to manage pricing.' },
+        { status: 400 },
+      );
     }
     const body = await request.json().catch(() => ({}));
     const update = {};
@@ -49,7 +56,7 @@ export async function PATCH(request, { params }) {
       .from('price_references')
       .update(update)
       .eq('id', params.id)
-      .eq('organization_id', session.organization_id)
+      .eq('organization_id', scope.orgId)
       .select('id, item_name, price_usd, unit, created_at')
       .maybeSingle();
     if (error) throw error;
@@ -68,15 +75,22 @@ export async function PATCH(request, { params }) {
 // DELETE /api/price-references/[id] — remove a pinned item price.
 export async function DELETE(request, { params }) {
   try {
-    const session = requireAdmin(cookies());
-    if (!session) {
+    const scope = getScope(cookies());
+    if (!scope) {
       return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 });
+    }
+    // Pricing is inherently per-org: a super admin must pick an org first.
+    if (!scope.orgId) {
+      return NextResponse.json(
+        { error: 'Select an organization to manage pricing.' },
+        { status: 400 },
+      );
     }
     const { error } = await supabaseAdmin
       .from('price_references')
       .delete()
       .eq('id', params.id)
-      .eq('organization_id', session.organization_id);
+      .eq('organization_id', scope.orgId);
     if (error) throw error;
     return NextResponse.json({ ok: true });
   } catch (e) {

@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { supabaseAdmin } from '@/lib/supabase';
-import { requireAdmin } from '@/lib/auth';
+import { getScope } from '@/lib/auth';
+import { captureModeForScope } from '@/lib/orgmode';
 import { startOfDay, endOfDay } from '@/lib/dates';
 import { getCategories, profileForMode } from '@/lib/categories';
 import { categorySummaryToFlatRow } from '@/lib/aggregate';
@@ -12,8 +13,8 @@ export const dynamic = 'force-dynamic';
 // Returns a CSV file shaped for pasting straight into Excel grant workbooks.
 export async function GET(request) {
   try {
-    const session = requireAdmin(cookies());
-    if (!session) {
+    const scope = getScope(cookies());
+    if (!scope) {
       return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 });
     }
 
@@ -25,9 +26,13 @@ export async function GET(request) {
 
     let query = supabaseAdmin
       .from('popup_logs')
-      .select('*, driver:drivers(name), location:locations(name)')
-      .order('logged_at', { ascending: false })
-      .eq('organization_id', session.organization_id);
+      .select(
+        '*, driver:drivers(name), location:locations(name), organization:organizations(name)',
+      )
+      .order('logged_at', { ascending: false });
+    // Org filter: always for regular admins; skipped only in the super
+    // admin's all-orgs export (which gains an Organization column below).
+    if (scope.orgId) query = query.eq('organization_id', scope.orgId);
     if (from) query = query.gte('logged_at', startOfDay(from));
     if (to) query = query.lte('logged_at', endOfDay(to));
     if (locationId) query = query.eq('location_id', locationId);
@@ -36,12 +41,13 @@ export async function GET(request) {
     const { data: logs, error } = await query;
     if (error) throw error;
 
-    // Category columns follow the admin's org profile (produce categories for
-    // gleaning orgs, the general set otherwise).
-    const profile = profileForMode(session.capture_mode);
+    // Category columns follow the scope's profile: the org's own set, or the
+    // union of every set for the super admin's all-orgs export.
+    const profile = profileForMode(await captureModeForScope(scope));
     const categories = getCategories(profile);
 
     const header = [
+      ...(scope.allOrgs ? ['Organization'] : []),
       'Date',
       'Location',
       'Submitted By',
@@ -66,6 +72,7 @@ export async function GET(request) {
     const rows = (logs || []).map((p) => {
       const flat = categorySummaryToFlatRow(p.ai_category_summary, profile);
       return [
+        ...(scope.allOrgs ? [p.organization?.name || ''] : []),
         formatDate(p.logged_at),
         p.location?.name || p.location_name_manual || '',
         p.driver?.name || '',

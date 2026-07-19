@@ -7,6 +7,10 @@ import crypto from 'crypto';
 export const SESSION_COOKIE = 'rescuelog_admin';
 export const SESSION_MAX_AGE = 60 * 60 * 24 * 7; // 7 days, in seconds
 
+// Which org a SUPER admin is currently viewing ('' / absent = all orgs).
+// Regular admins never read or honor this cookie.
+export const SUPER_ORG_COOKIE = 'rescuelog_super_org';
+
 const SECRET = process.env.ADMIN_SESSION_SECRET || 'dev-insecure-secret-change-me';
 
 // Fail closed: in production, refuse to sign or verify with a missing/weak
@@ -36,11 +40,13 @@ export function createSessionToken(admin) {
       id: admin.id,
       name: admin.name,
       email: admin.email,
-      // The org this admin is scoped to. Null/absent for legacy admins → the
-      // dashboard falls back to showing all orgs (pre-scoping behavior).
+      // The org this admin is scoped to (null for super admins).
       organization_id: admin.organization_id ?? null,
-      // The org's capture mode, for pop-up vs cart dashboard terminology.
+      // The org's capture mode, for dashboard terminology.
       capture_mode: admin.capture_mode || 'popup',
+      // Explicit master flag — NOT inferred from a missing organization_id.
+      // Only set true from the is_super_admin database column at login.
+      is_super_admin: admin.is_super_admin === true,
     }),
   ).toString('base64url');
   const sig = crypto.createHmac('sha256', SECRET).update(payload).digest('hex');
@@ -77,13 +83,38 @@ export function getSessionOrgId(cookieStore) {
 }
 
 // Fail-closed gate for dashboard/admin routes. Returns the session only when it
-// is valid AND bound to an organization; otherwise null. A route that gets null
-// must respond 401 — a session with no org is NOT granted blanket access.
-// (Every real admin is assigned an organization_id by the multi-org migration;
-// an admin missing one is a misconfiguration to fix in SQL, not a reason to
-// leak every org's data.)
+// is valid AND either bound to an organization OR explicitly flagged as a super
+// admin; otherwise null. A route that gets null must respond 401 — a REGULAR
+// session with no org is NOT granted blanket access (that would be the old
+// cross-tenant hole). The super bypass is gated strictly on the explicit
+// is_super_admin flag minted from the database column at login.
 export function requireAdmin(cookieStore) {
   const session = getSession(cookieStore);
-  if (!session || !session.organization_id) return null;
+  if (!session) return null;
+  if (session.is_super_admin === true) return session;
+  if (!session.organization_id) return null;
   return session;
+}
+
+// The data scope a dashboard request operates under. This is THE single place
+// that decides which org's rows a route may touch:
+//   - Regular admin: always exactly their own org. The super-org picker cookie
+//     is ignored for them entirely.
+//   - Super admin: the org selected in the picker cookie, or ALL orgs when no
+//     org is picked (orgId null + allOrgs true).
+// Returns null when unauthorized. Routes must 401 on null and must only skip
+// the org filter when scope.allOrgs is true (which only a super can produce).
+export function getScope(cookieStore) {
+  const session = requireAdmin(cookieStore);
+  if (!session) return null;
+  if (session.is_super_admin !== true) {
+    return {
+      session,
+      superAdmin: false,
+      orgId: session.organization_id,
+      allOrgs: false,
+    };
+  }
+  const picked = cookieStore?.get(SUPER_ORG_COOKIE)?.value || '';
+  return { session, superAdmin: true, orgId: picked || null, allOrgs: !picked };
 }

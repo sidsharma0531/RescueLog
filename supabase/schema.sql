@@ -35,7 +35,9 @@ create table if not exists drivers (
 );
 
 -- ADMIN USERS: dashboard login. Each admin is scoped to one organization, so
--- the dashboard only shows that org's logs/data.
+-- the dashboard only shows that org's logs/data. is_super_admin is an EXPLICIT
+-- master flag (never inferred from a missing organization_id): super admins
+-- see an all-orgs aggregate and can drill into any single org.
 create table if not exists admin_users (
   id               uuid primary key default gen_random_uuid(),
   organization_id  uuid references organizations(id),
@@ -43,6 +45,7 @@ create table if not exists admin_users (
   email            text unique not null,
   password_hash    text not null,
   role             text default 'admin',
+  is_super_admin   boolean default false,
   created_at       timestamptz default now()
 );
 
@@ -131,6 +134,8 @@ alter table popup_logs    add column if not exists scale_weight_lbs numeric;
 alter table popup_logs    add column if not exists household_id text;
 -- Per-org admin scoping (added after Cart Mode): each admin sees only their org.
 alter table admin_users   add column if not exists organization_id uuid references organizations(id);
+-- Explicit super-admin (master) flag.
+alter table admin_users   add column if not exists is_super_admin boolean default false;
 -- Estimated retail value (value feature).
 alter table popup_logs    add column if not exists ai_total_value numeric;
 -- Gleaning trips (Glean Kentucky): who donated the produce and which agency
