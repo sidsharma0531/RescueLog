@@ -6,7 +6,14 @@ import { drainBatches } from '@/lib/analyze';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
-const MAX_PHOTOS_PER_REQUEST = 40;
+// Upper bound on URLs per request. This is a payload-sanity limit, not a
+// per-log cap: the request body carries only URLs (photo bytes go straight to
+// Storage from the phone), and the AI runs asynchronously afterwards, so a
+// large batch costs one cheap bulk insert. The mobile app chunks its submits
+// well below this. NEVER silently truncate — a request over the limit is
+// rejected loudly (see below) so no photo can be dropped without the client
+// knowing. (A silent .slice() here once dropped 24 of a 64-photo pop-up.)
+const MAX_PHOTOS_PER_REQUEST = 200;
 
 // Run work after the HTTP response. On Vercel, waitUntil keeps the function
 // alive until the promise settles (bounded by maxDuration); off-Vercel
@@ -53,8 +60,18 @@ export async function POST(request, { params }) {
         storage_path:
           typeof p?.storage_path === 'string' ? p.storage_path : null,
       }))
-      .filter((p) => p.url)
-      .slice(0, MAX_PHOTOS_PER_REQUEST);
+      .filter((p) => p.url);
+
+    // Over-limit requests fail LOUDLY. Truncating here would silently lose
+    // photos while the client believes everything was attached.
+    if (rawPhotos.length > MAX_PHOTOS_PER_REQUEST) {
+      return NextResponse.json(
+        {
+          error: `Too many photos in one request (${rawPhotos.length}). Send at most ${MAX_PHOTOS_PER_REQUEST} per request, in batches.`,
+        },
+        { status: 400 },
+      );
+    }
 
     // Only accept URLs that point at OUR photo bucket, and only storage paths
     // inside THIS log's own folder. Without this, a caller could (a) make the

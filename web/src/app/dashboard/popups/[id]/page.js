@@ -59,6 +59,29 @@ export default function PopupDetailPage() {
     }
   }
 
+  const [resyncing, setResyncing] = useState(false);
+  const [resyncMsg, setResyncMsg] = useState('');
+
+  // Attach any photo that reached storage but never got a row (a partially
+  // failed submit), then let the normal processing poll finish the analysis.
+  async function handleResync() {
+    setResyncing(true);
+    setResyncMsg('');
+    try {
+      const r = await apiPost(`/api/popups/${id}/resync`, {});
+      setResyncMsg(
+        r.attached > 0
+          ? `Attached ${r.attached} missing photo${r.attached === 1 ? '' : 's'}. Analyzing now.`
+          : 'All uploaded photos are already attached.',
+      );
+      if (r.attached > 0) load(true);
+    } catch (e) {
+      setResyncMsg(e.message);
+    } finally {
+      setResyncing(false);
+    }
+  }
+
   // Save a gleaning trip field (donor_source / recipient_agency). Empty clears.
   async function saveTripField(field, value) {
     const v = String(value || '').trim();
@@ -540,6 +563,19 @@ export default function PopupDetailPage() {
 
       <Card title={`Photos (${popup.photos?.length || 0})`}>
         <PhotoGallery photos={popup.photos} />
+        <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-gray-100 pt-3">
+          <button
+            onClick={handleResync}
+            disabled={resyncing}
+            className="text-sm font-medium text-rescue-green hover:underline disabled:opacity-60"
+          >
+            {resyncing ? 'Checking…' : 'Re-sync photos'}
+          </button>
+          <span className="text-xs text-gray-400">
+            Attaches any photo that uploaded but never appeared here
+          </span>
+        </div>
+        {resyncMsg && <p className="mt-2 text-xs text-gray-500">{resyncMsg}</p>}
       </Card>
 
       <Card title="Per-photo AI analysis">
