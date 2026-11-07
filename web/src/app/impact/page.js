@@ -378,7 +378,7 @@ function Methodology() {
   const steps = [
     {
       title: 'Captured in the field',
-      body: 'Volunteers photograph rescued food during real distributions, including partners like Second Servings Houston.',
+      body: 'Volunteers photograph rescued food during real distributions at partner sites.',
     },
     {
       title: 'Analyzed by AI',

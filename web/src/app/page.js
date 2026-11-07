@@ -218,7 +218,7 @@ function HeroCard() {
       <div className="rotate-[1.2deg] rounded-3xl border border-[#1B4332]/10 bg-white p-6 shadow-2xl shadow-[#1B4332]/15">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-sm font-bold">St. Peter Claver · Pop-Up</p>
+            <p className="text-sm font-bold">Community Pop-Up</p>
             <p className="mt-0.5 text-xs text-[#1E2A23]/55">Logged by a volunteer · 20 photos</p>
           </div>
           <span
@@ -424,13 +424,11 @@ function Proof() {
           <div>
             <Eyebrow light>Real results</Eyebrow>
             <Display className="text-3xl text-white sm:text-[2.6rem] sm:leading-[1.1]">
-              Already running at one of the largest food rescues in Texas.
+              Already at work in the field.
             </Display>
             <p className="mt-5 max-w-md text-base leading-relaxed text-white/70">
-              RescueLog is used by{' '}
-              <span className="font-semibold text-white">Second Servings Houston</span>, a
-              19-million-pound food rescue nonprofit, to log pop-up grocery
-              distributions across the city.
+              Food rescue organizations use RescueLog to log pop-up grocery
+              distributions and cart programs.
             </p>
             <p className="mt-4 max-w-md text-base leading-relaxed text-white/70">
               The snapshot shown here is a real event from the live dashboard:
@@ -442,7 +440,7 @@ function Proof() {
           <div className="rounded-3xl bg-white p-6 text-[#1E2A23] shadow-2xl sm:p-8">
             <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#1B4332]/10 pb-4">
               <div>
-                <p className="text-sm font-bold">Pop-Up Distribution · St. Peter Claver</p>
+                <p className="text-sm font-bold">Community Pop-Up Distribution</p>
                 <p className="mt-0.5 text-xs text-[#1E2A23]/55">
                   Logged by volunteers · 20 photos · AI analyzed
                 </p>

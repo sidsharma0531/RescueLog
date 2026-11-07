@@ -19,7 +19,7 @@ const FIELDS = [
     key: 'org_name',
     label: 'Organization name',
     required: true,
-    placeholder: 'e.g. Second Servings Houston',
+    placeholder: "Your organization's name",
   },
   {
     key: 'contact_name',
