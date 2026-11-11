@@ -108,11 +108,24 @@ export async function POST(request) {
       );
     }
 
+    // Cart logs have no real site: the app files each one under the org's
+    // name. Take that name from the database (not the copy cached on the
+    // phone) so renaming an org keeps all of its cart logs under one site.
+    let siteName = manualName;
+    if (isCart) {
+      const { data: org } = await supabaseAdmin
+        .from('organizations')
+        .select('name')
+        .eq('id', driver.organization_id)
+        .maybeSingle();
+      if (org?.name) siteName = String(org.name).trim().slice(0, 200);
+    }
+
     const insert = {
       driver_id: body.driver_id,
       organization_id: driver.organization_id,
       location_id: body.location_id || null,
-      location_name_manual: manualName || null,
+      location_name_manual: siteName || null,
       latitude: latOrNull(body.latitude),
       longitude: lonOrNull(body.longitude),
       driver_weight_estimate: weightOrNull(body.driver_weight_estimate),

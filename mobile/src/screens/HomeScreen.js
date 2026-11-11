@@ -47,17 +47,24 @@ export default function HomeScreen({ navigation }) {
     setDriver(d);
     setOrg(o);
 
-    // Self-heal the cached capture mode. The org's mode is stored on-device at
-    // org-pick time, so if the server's mode changes (or the pick happened
-    // before the server knew about a mode), the device would be stuck on the
-    // wrong flow forever. Refresh it from the API in the background.
+    // Self-heal the cached org. Its capture mode and display name are stored
+    // on-device at org-pick time, so if either changes on the server (a mode
+    // switch, an org rename), the device would be stuck with the stale copy
+    // forever. Refresh both from the API in the background.
     if (o?.id) {
       api
         .getOrganizations()
         .then(async (res) => {
           const fresh = (res.organizations || []).find((x) => x.id === o.id);
-          if (fresh && fresh.capture_mode !== o.capture_mode) {
-            const updated = { ...o, capture_mode: fresh.capture_mode };
+          if (
+            fresh &&
+            (fresh.capture_mode !== o.capture_mode || fresh.name !== o.name)
+          ) {
+            const updated = {
+              ...o,
+              capture_mode: fresh.capture_mode,
+              name: fresh.name,
+            };
             await saveOrg(updated);
             setOrg(updated);
           }

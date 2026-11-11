@@ -31,7 +31,7 @@ alter table price_references enable row level security;
 
 -- 2. Second Mile org (Cart Mode) + demo driver -----------------
 insert into organizations (id, name, status, capture_mode)
-values ('00000000-0000-0000-0000-000000000002', 'Second Mile', 'approved', 'cart')
+values ('00000000-0000-0000-0000-000000000002', 'Second Mile TX', 'approved', 'cart')
 on conflict (id) do update set status = 'approved', capture_mode = 'cart';
 
 update organizations set capture_mode = 'popup'
@@ -76,7 +76,7 @@ where organization_id is null;
 
 -- 5. Glean Kentucky (Gleaning mode) + demo driver + admin ------
 insert into organizations (id, name, status, capture_mode)
-values ('00000000-0000-0000-0000-000000000003', 'Glean Kentucky', 'approved', 'gleaning')
+values ('00000000-0000-0000-0000-000000000003', 'Glean KY', 'approved', 'gleaning')
 on conflict (id) do update set status = 'approved', capture_mode = 'gleaning';
 
 insert into drivers (organization_id, name, pin)

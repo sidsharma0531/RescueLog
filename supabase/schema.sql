@@ -183,7 +183,7 @@ create policy "popup-photos public upload"
 -- be migrated and the app has a known starter organization.
 insert into organizations (id, name, status)
 values ('00000000-0000-0000-0000-000000000001',
-        'Second Servings Houston',
+        'Second Servings Houston TX',
         'approved')
 on conflict (id) do nothing;
 
@@ -193,7 +193,7 @@ on conflict (id) do nothing;
 -- "Cart Log".
 insert into organizations (id, name, status, capture_mode)
 values ('00000000-0000-0000-0000-000000000002',
-        'Second Mile',
+        'Second Mile TX',
         'approved',
         'cart')
 on conflict (id) do update set status = 'approved', capture_mode = 'cart';
@@ -212,7 +212,7 @@ where not exists (
 -- estimates weight from photos with produce-specific categories).
 insert into organizations (id, name, status, capture_mode)
 values ('00000000-0000-0000-0000-000000000003',
-        'Glean Kentucky',
+        'Glean KY',
         'approved',
         'gleaning')
 on conflict (id) do update set status = 'approved', capture_mode = 'gleaning';
